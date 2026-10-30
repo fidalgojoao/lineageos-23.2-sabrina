@@ -1,0 +1,6 @@
+<?xml version='1.0' encoding='utf-8'?>
+<exceptions>
+  <exception package="com.google.android.apps.tv.launcherx">
+    <permission name="android.permission.RECORD_AUDIO" fixed="false" />
+  </exception>
+</exceptions>

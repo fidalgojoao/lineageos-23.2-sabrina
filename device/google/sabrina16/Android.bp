@@ -1,0 +1,51 @@
+// SPDX-License-Identifier: Apache-2.0
+soong_namespace {}
+
+prebuilt_etc {
+    name: "SabrinaFrameworkExtensionMatrix",
+    src: "compatibility/sabrina-framework-extensions.xml",
+    filename: "compatibility_matrix.sabrina.xml",
+    sub_dir: "vintf",
+    product_specific: true,
+}
+
+// Original signed Google TV app recovered from this device's verified stock OTA.
+// Keeping a signature is necessary but does not prove runtime compatibility.
+android_app_import {
+    name: "SabrinaGoogleTVLauncher",
+    apk: "proprietary/TVLauncherXPrebuilt.apk",
+    // Keep the stock v2 signature: never realign or repackage this signed APK.
+    preprocessed: true,
+    privileged: true,
+    product_specific: true,
+    dex_preopt: { enabled: false },
+    overrides: [
+        "TVLauncher", "TVLauncherNoGMS", "TVRecommendations",
+        "TVRecommendationsNoGMS", "Catapult", "TvSampleLeanbackLauncher",
+        // Exclude the inherited ROM updater; this image has no firmware OTA channel.
+        "Updater",
+        // Optional Google diagnostic-report uploader; core GMS remains installed.
+        "GoogleFeedback",
+        // Competing setup apps stop Android recognising SetupWraith as the setup wizard.
+        "TvProvision", "LineageSetupWizard",
+    ],
+}
+
+// Stock Gboard for TV, extracted from your own stock image.
+android_app_import {
+    name: "SabrinaGboardTV",
+    apk: "proprietary/LatinIMEGoogleTvPrebuilt.apk",
+    preprocessed: true,
+    product_specific: true,
+    dex_preopt: { enabled: false },
+    overrides: ["LeanbackIME"],
+}
+
+// Restore the stock device's actual FCM-4 description. Never falsely advertise
+// a newer vendor level or skip VINTF checking to make an incompatible ROM pass.
+prebuilt_etc {
+    name: "SabrinaLegacyFrameworkMatrix4",
+    src: "compatibility/compatibility_matrix.4.xml",
+    filename: "compatibility_matrix.4.xml",
+    sub_dir: "vintf",
+}

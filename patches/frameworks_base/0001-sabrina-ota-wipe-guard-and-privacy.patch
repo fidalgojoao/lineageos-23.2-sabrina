@@ -1,0 +1,163 @@
+diff --git a/services/core/java/com/android/server/pm/ScanPackageUtils.java b/services/core/java/com/android/server/pm/ScanPackageUtils.java
+index b7ae043d6..a7e2f56c4 100644
+--- a/services/core/java/com/android/server/pm/ScanPackageUtils.java
++++ b/services/core/java/com/android/server/pm/ScanPackageUtils.java
+@@ -293,6 +293,17 @@ final class ScanPackageUtils {
+         pkgSetting.getTransientState().setSeInfo(SELinuxMMAC.getSeInfo(pkgSetting, parsedPackage,
+                 sharedUserSetting, injector.getCompatibility()));
+ 
++        // Apply supported optional-telemetry SDK opt-outs at every package scan,
++        // including newly installed/updated apps. Do not disable Firebase messaging/auth.
++        if (SystemProperties.getBoolean("ro.build.privacy_minimized", false)
++                && parsedPackage instanceof com.android.internal.pm.parsing.pkg.PackageImpl) {
++            final android.os.Bundle privacyMetadata = parsedPackage.getMetaData() == null
++                    ? new android.os.Bundle() : new android.os.Bundle(parsedPackage.getMetaData());
++            PrivacyMetadataPolicy.apply(privacyMetadata::putBoolean);
++            ((com.android.internal.pm.parsing.pkg.PackageImpl) parsedPackage)
++                    .setMetaData(privacyMetadata);
++        }
++
+         if (pkgSetting.isSystem()) {
+             configurePackageComponents(parsedPackage);
+         }
+diff --git a/services/core/java/com/android/server/recoverysystem/RecoverySystemService.java b/services/core/java/com/android/server/recoverysystem/RecoverySystemService.java
+index 1ab423d90..5ba0533e0 100644
+--- a/services/core/java/com/android/server/recoverysystem/RecoverySystemService.java
++++ b/services/core/java/com/android/server/recoverysystem/RecoverySystemService.java
+@@ -1096,6 +1096,15 @@ public class RecoverySystemService extends IRecoverySystem.Stub implements Reboo
+     private boolean setupOrClearBcb(boolean isSetup, String command) {
+         mContext.enforceCallingOrSelfPermission(android.Manifest.permission.RECOVERY, null);
+ 
++        // Firmware OTAs can relock this custom Sabrina installation. App/APEX updates
++        // do not use recovery --update_package and remain unaffected.
++        final boolean firmwareOtaBlocked = "true".equalsIgnoreCase(
++                mInjector.systemPropertiesGet("ro.build.firmware_ota_blocked"));
++        if (isSetup && FirmwareOtaPolicy.blocksRecoveryCommand(firmwareOtaBlocked, command)) {
++            Slog.w(TAG, "Recovery firmware OTA installation is disabled by this build");
++            return false;
++        }
++
+         final boolean available = checkAndWaitForUncryptService();
+         if (!available) {
+             Slog.e(TAG, "uncrypt service is unavailable.");
+diff --git a/services/tests/servicestests/src/com/android/server/recoverysystem/RecoverySystemServiceTest.java b/services/tests/servicestests/src/com/android/server/recoverysystem/RecoverySystemServiceTest.java
+index e0bed7ce7..0d0b8b7e7 100644
+--- a/services/tests/servicestests/src/com/android/server/recoverysystem/RecoverySystemServiceTest.java
++++ b/services/tests/servicestests/src/com/android/server/recoverysystem/RecoverySystemServiceTest.java
+@@ -151,6 +151,38 @@ public class RecoverySystemServiceTest {
+         mRecoverySystemService.clearBcb();
+     }
+ 
++    @Test
++    public void setupBcb_firmwareOtaBlocked() throws Exception {
++        mSystemProperties.setFirmwareOtaBlocked(true);
++        assertFalse(mRecoverySystemService.setupBcb("--update_package=/data/update.zip"));
++        assertEquals(null, mSystemProperties.getCtlStart());
++        verifyNoMoreInteractions(mUncryptSocket, mIPowerManager);
++    }
++
++    @Test
++    public void rebootRecoveryWithCommand_firmwareOtaBlocked() throws Exception {
++        mSystemProperties.setFirmwareOtaBlocked(true);
++        mRecoverySystemService.rebootRecoveryWithCommand("--update_package=/data/update.zip");
++        assertEquals(null, mSystemProperties.getCtlStart());
++        verifyNoMoreInteractions(mUncryptSocket, mIPowerManager);
++    }
++
++    @Test
++    public void setupBcb_wipeBlockedWhenFirmwareOtaBlocked() throws Exception {
++        mSystemProperties.setFirmwareOtaBlocked(true);
++        assertFalse(mRecoverySystemService.setupBcb("--wipe_data\n--reason=FactoryReset"));
++        assertFalse(mRecoverySystemService.setupBcb("--prompt_and_wipe_data\n--reason=RescueParty"));
++        assertEquals(null, mSystemProperties.getCtlStart());
++        verifyNoMoreInteractions(mUncryptSocket, mIPowerManager);
++    }
++
++    @Test
++    public void setupBcb_otaAllowedWhenFirmwareOtaGuardOff() throws Exception {
++        when(mUncryptSocket.getPercentageUncrypted()).thenReturn(100);
++        assertTrue(mRecoverySystemService.setupBcb("--update_package=/data/update.zip"));
++        verify(mUncryptSocket).sendCommand("--update_package=/data/update.zip");
++    }
++
+     @Test
+     public void setupBcb_success() throws Exception {
+         doNothing().when(mContext).enforceCallingOrSelfPermission(
+diff --git a/services/tests/servicestests/src/com/android/server/recoverysystem/RecoverySystemServiceTestable.java b/services/tests/servicestests/src/com/android/server/recoverysystem/RecoverySystemServiceTestable.java
+index 2004080ee..ef9b282eb 100644
+--- a/services/tests/servicestests/src/com/android/server/recoverysystem/RecoverySystemServiceTestable.java
++++ b/services/tests/servicestests/src/com/android/server/recoverysystem/RecoverySystemServiceTestable.java
+@@ -155,12 +155,20 @@ public class RecoverySystemServiceTestable extends RecoverySystemService {
+ 
+     public static class FakeSystemProperties {
+         private String mCtlStart = null;
++        private boolean mFirmwareOtaBlocked;
++
++        public void setFirmwareOtaBlocked(boolean blocked) {
++            mFirmwareOtaBlocked = blocked;
++        }
++
+ 
+         public String get(String key) {
+             if (RecoverySystemService.INIT_SERVICE_UNCRYPT.equals(key)
+                     || RecoverySystemService.INIT_SERVICE_SETUP_BCB.equals(key)
+                     || RecoverySystemService.INIT_SERVICE_CLEAR_BCB.equals(key)) {
+                 return null;
++            } else if ("ro.build.firmware_ota_blocked".equals(key)) {
++                return Boolean.toString(mFirmwareOtaBlocked);
+             } else if (RecoverySystemService.AB_UPDATE.equals(key)) {
+                 return "true";
+             } else {
+diff --git a/services/core/java/com/android/server/pm/PrivacyMetadataPolicy.java b/services/core/java/com/android/server/pm/PrivacyMetadataPolicy.java
+new file mode 100644
+index 000000000..55dc1743b
+--- /dev/null
++++ b/services/core/java/com/android/server/pm/PrivacyMetadataPolicy.java
+@@ -0,0 +1,17 @@
++/* SPDX-License-Identifier: Apache-2.0 */
++package com.android.server.pm;
++
++import java.util.function.BiConsumer;
++
++/** SDK-supported collection opt-outs; does not change Firebase messaging/auth defaults. */
++final class PrivacyMetadataPolicy {
++    private PrivacyMetadataPolicy() {}
++
++    static void apply(BiConsumer<String, Boolean> putBoolean) {
++        putBoolean.accept("firebase_analytics_collection_deactivated", true);
++        putBoolean.accept("firebase_performance_collection_deactivated", true);
++        putBoolean.accept("firebase_crashlytics_collection_enabled", false);
++        putBoolean.accept("google_analytics_adid_collection_enabled", false);
++        putBoolean.accept("google_analytics_default_allow_ad_personalization_signals", false);
++    }
++}
+diff --git a/services/core/java/com/android/server/recoverysystem/FirmwareOtaPolicy.java b/services/core/java/com/android/server/recoverysystem/FirmwareOtaPolicy.java
+new file mode 100644
+index 000000000..a649e0b5d
+--- /dev/null
++++ b/services/core/java/com/android/server/recoverysystem/FirmwareOtaPolicy.java
+@@ -0,0 +1,24 @@
++/* SPDX-License-Identifier: Apache-2.0 */
++package com.android.server.recoverysystem;
++
++/** Recovery OTA policy for the custom Sabrina image; unrelated to APK/APEX updates. */
++final class FirmwareOtaPolicy {
++    private FirmwareOtaPolicy() {}
++
++    static boolean blocksRecoveryCommand(boolean firmwareOtaBlocked, String command) {
++        if (!firmwareOtaBlocked || command == null) {
++            return false;
++        }
++        for (String argument : command.split("\n")) {
++            if (argument.equals("--update_package") || argument.startsWith("--update_package=")) {
++                return true;
++            }
++            // Stock recovery's factory reset also resets env, which relocks this device.
++            // Userdata must be wiped with fastboot -w instead.
++            if (argument.equals("--wipe_data") || argument.equals("--prompt_and_wipe_data")) {
++                return true;
++            }
++        }
++        return false;
++    }
++}

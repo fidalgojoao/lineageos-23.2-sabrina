@@ -1,0 +1,14 @@
+lineageos-23-sabrina
+
+Original files in this repository are licensed under the Apache License 2.0.
+See LICENSE.
+
+Files in patches/kernel/ modify the Linux kernel and are licensed under
+GPL-2.0-only.
+
+Patches to AOSP and LineageOS projects remain subject to the licenses of the
+projects they modify. compatibility_matrix.4.xml derives from AOSP.
+
+This repository contains no Google apps, vendor binaries, firmware or signing
+keys. Android, Google TV and Chromecast are trademarks of Google LLC. This
+project is unofficial and is not affiliated with Google or LineageOS.

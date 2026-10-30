@@ -1,0 +1,27 @@
+<?xml version='1.0' encoding='utf-8'?>
+<config>
+  <component-override package="com.google.android.gms">
+    <component class="com.google.android.gms.update.OtaSuggestionActivity" enabled="false" />
+    <component class="com.google.android.gms.update.OtaSuggestionSummaryProvider" enabled="false" />
+    <component class="com.google.android.gms.update.SystemUpdateService" enabled="false" />
+    <component class="com.google.android.gms.update.SystemUpdateGcmTaskService" enabled="false" />
+    <component class="com.google.android.gms.update.UpdateFromSdCardService" enabled="false" />
+    <component class="com.google.android.gms.update.SystemUpdatePersistentListenerService" enabled="false" />
+    <component class="com.google.android.gms.update.UpdateJobService" enabled="false" />
+    <component class="com.google.android.gms.update.SystemUpdatePanoActivity" enabled="false" />
+    <component class="com.google.android.gms.update.LegacySystemUpdatePanoActivity" enabled="false" />
+    <component class="com.google.android.gms.update.OtaPanoSetupActivity" enabled="false" />
+    <component class="com.google.android.gms.update.LegacyOtaPanoSetupActivity" enabled="false" />
+    <component class="com.google.android.gms.update.CompleteDialog" enabled="false" />
+  </component-override>
+  <component-override package="com.google.android.tungsten.setupwraith">
+    <component class="com.android.systemupdateservice.SystemUpdateService" enabled="false" />
+  </component-override>
+  <component-override package="org.lineageos.updater">
+    <component class="org.lineageos.updater.preferences.PreferencesActivity" enabled="false" />
+    <component class="org.lineageos.updater.UpdatesActivity" enabled="false" />
+    <component class="org.lineageos.updater.controller.UpdaterService" enabled="false" />
+    <component class="org.lineageos.updater.ExportUpdateService" enabled="false" />
+    <component class="org.lineageos.updater.UpdaterReceiver" enabled="false" />
+  </component-override>
+</config>

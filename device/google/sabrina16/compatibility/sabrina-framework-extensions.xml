@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Exact private HAL contracts present in the verified stock vendor manifests.
+     These declarations do not claim that Android 16 clients have been ported. -->
+<compatibility-matrix version="1.0" type="framework">
+    <hal format="hidl" optional="false">
+        <name>vendor.amlogic.display.meson_display_ipc</name>
+        <version>1.0</version>
+        <interface><name>IMesonDisplayIPC</name><instance>default</instance></interface>
+    </hal>
+    <hal format="hidl" optional="false">
+        <name>vendor.amlogic.hardware.screencontrol</name>
+        <version>1.0</version>
+        <interface><name>IScreenControl</name><instance>default</instance></interface>
+    </hal>
+    <hal format="hidl" optional="false">
+        <name>vendor.amlogic.hardware.systemcontrol</name>
+        <version>1.1</version>
+        <interface><name>ISystemControl</name><instance>default</instance></interface>
+    </hal>
+</compatibility-matrix>

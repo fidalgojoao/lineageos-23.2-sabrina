@@ -1,0 +1,184 @@
+diff --git a/init/init.cpp b/init/init.cpp
+index 7de53f9..f0ca4d3 100644
+--- a/init/init.cpp
++++ b/init/init.cpp
+@@ -23,7 +23,11 @@
+ #include <signal.h>
+ #include <stdlib.h>
+ #include <string.h>
++#include <linux/reboot.h>
++#include <sched.h>
+ #include <sys/eventfd.h>
++#include <sys/syscall.h>
++#include <sys/wait.h>
+ #include <sys/mount.h>
+ #include <sys/signalfd.h>
+ #include <sys/system_properties.h>
+@@ -1041,13 +1045,102 @@ static void SecondStageBootMonitor(int timeout_sec) {
+     }
+ }
+ 
++// Sabrina diagnostic only: a silent hang loses all logs. Report the boot gates, then return to the
++// bootloader with a warm reset so the retained console survives and recovery is never entered.
++static void SabrinaLogBootGates(int elapsed) {
++    static const char* const kProps[] = {
++            "apexd.status", "keystore.module_hash.sent", "vold.post_fs_data_done",
++            "ro.crypto.state", "odsign.key.done", "odsign.verification.done", "sys.usb.config",
++            "init.svc.ueventd", "init.svc.vold", "init.svc.apexd", "init.svc.keystore2",
++            "init.svc.vendor.keymint-default", "init.svc.vendor.tee_supplicant",
++            "init.svc.hwservicemanager", "init.svc.servicemanager", "init.svc.surfaceflinger",
++            "init.svc.bootanim", "init.svc.zygote", "init.svc.odsign"};
++    std::string line = StringPrintf("sabrina_watchdog: t=%d", elapsed);
++    for (const char* prop : kProps) {
++        line += StringPrintf(" %s=%s", prop, android::base::GetProperty(prop, "-").c_str());
++    }
++    LOG(ERROR) << line;
++}
++
++static void SabrinaDumpProcesses() {
++    std::unique_ptr<DIR, decltype(&closedir)> proc(opendir("/proc"), closedir);
++    if (!proc) return;
++    while (dirent* entry = readdir(proc.get())) {
++        if (entry->d_name[0] < '0' || entry->d_name[0] > '9') continue;
++        std::string base = StringPrintf("/proc/%s/", entry->d_name), stat, wchan;
++        if (!android::base::ReadFileToString(base + "stat", &stat)) continue;
++        android::base::ReadFileToString(base + "wchan", &wchan);
++        // Kernel threads have an empty cmdline and only add noise to the retained console.
++        std::string cmdline;
++        android::base::ReadFileToString(base + "cmdline", &cmdline);
++        if (cmdline.empty()) continue;
++        LOG(ERROR) << "sabrina_watchdog: proc " << stat.substr(0, 64) << " wchan=" << wchan;
++    }
++}
++
++static void SabrinaDumpLogcat() {
++    int fds[2];
++    if (pipe(fds) != 0) return;
++    pid_t child = fork();
++    if (child == 0) {
++        dup2(fds[1], STDOUT_FILENO);
++        dup2(fds[1], STDERR_FILENO);
++        close(fds[0]);
++        close(fds[1]);
++        alarm(20);  // logd may be the component that is stuck.
++        execl("/system/bin/logcat", "logcat", "-d", "-b", "all", "-v", "threadtime", "-t", "500",
++              "*:W", "odsign:V", static_cast<char*>(nullptr));
++        _exit(1);
++    }
++    close(fds[1]);
++    // /dev/kmsg rejects large writes, so each line has to be logged separately.
++    if (FILE* output = fdopen(fds[0], "r")) {
++        char line[768];
++        while (fgets(line, sizeof(line), output)) {
++            LOG(ERROR) << "sabrina_logcat: " << android::base::Trim(line);
++        }
++        fclose(output);
++    } else {
++        close(fds[0]);
++    }
++}
++
++static void SabrinaHangWatchdog() {
++    // As in bootchart: otherwise init's setns() in enter_default_mount_ns fails with EINVAL.
++    if (unshare(CLONE_NEWNS) == -1) {
++        PLOG(ERROR) << "sabrina_watchdog: cannot unshare mount namespace";
++        return;
++    }
++    int limit = 150;
++    android::base::SetMinimumLogSeverity(android::base::VERBOSE);
++    for (int elapsed = 30; elapsed <= limit; elapsed += 30) {
++        if (WaitForProperty("sys.boot_completed", "1", 30s)) {
++            LOG(ERROR) << "sabrina_watchdog: boot completed after about " << elapsed << "s";
++            return;
++        }
++        SabrinaLogBootGates(elapsed);
++        // First-boot dexopt can be slow once the framework is starting; that is not a hang.
++        if (android::base::GetProperty("init.svc.zygote", "") == "running") limit = 900;
++    }
++    LOG(ERROR) << "sabrina_watchdog: boot incomplete; capturing state and entering bootloader";
++    SabrinaDumpLogcat();
++    SabrinaDumpProcesses();
++    SabrinaLogBootGates(limit);
++    sync();
++    std::this_thread::sleep_for(500ms);
++    syscall(__NR_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2, LINUX_REBOOT_CMD_RESTART2,
++            "bootloader");
++}
++
+ static void StartSecondStageBootMonitor(int timeout_sec) {
+     std::thread monitor_thread(&SecondStageBootMonitor, timeout_sec);
+     monitor_thread.detach();
+ }
+ 
+ int SecondStageMain(int argc, char** argv) {
+-    if (REBOOT_BOOTLOADER_ON_PANIC) {
++    // Sabrina diagnostic only: preserve backtrace and request warm bootloader recovery
++    // on init signals, without enabling userdebug or permissive SELinux.
++    if (true /* SABRINA_BOOT_DIAGNOSTIC_SIGNAL_RECOVERY */) {
+         InstallRebootSignalHandlers();
+     }
+ 
+@@ -1061,6 +1154,7 @@ int SecondStageMain(int argc, char** argv) {
+ 
+     SetStdioToDevNull(argv);
+     InitKernelLogging(argv);
++    LOG(ERROR) << "sabrina_bootdiag: second_stage_entered";
+     LOG(INFO) << "init second stage started!";
+ 
+     SelinuxSetupKernelLogging();
+@@ -1179,6 +1273,8 @@ int SecondStageMain(int argc, char** argv) {
+ 
+     InitializeSubcontext();
+ 
++    std::thread(&SabrinaHangWatchdog).detach();
++
+     ActionManager& am = ActionManager::GetInstance();
+     ServiceList& sm = ServiceList::GetInstance();
+ 
+diff --git a/init/selinux.cpp b/init/selinux.cpp
+index 93f6312..a0fe9f6 100644
+--- a/init/selinux.cpp
++++ b/init/selinux.cpp
+@@ -111,10 +111,12 @@ EnforcingStatus StatusFromProperty() {
+ }
+ 
+ bool IsEnforcing() {
+-    if (ALLOW_PERMISSIVE_SELINUX) {
+-        return StatusFromProperty() == SELINUX_ENFORCING;
++    std::string sabrina_mode;
++    if (android::fs_mgr::GetKernelCmdline("sabrina.selinux", &sabrina_mode) &&
++        sabrina_mode == "permissive") {
++        return false;
+     }
+-    return true;
++    return StatusFromProperty() == SELINUX_ENFORCING;
+ }
+ 
+ bool ReadFirstLine(const char* file, std::string* line) {
+@@ -780,8 +782,11 @@ void SetupOverlays() {}
+ int SetupSelinux(char** argv) {
+     SetStdioToDevNull(argv);
+     InitKernelLogging(argv);
++    LOG(ERROR) << "sabrina_bootdiag: selinux_setup_entered";
+ 
+-    if (REBOOT_BOOTLOADER_ON_PANIC) {
++    // Sabrina diagnostic only: preserve backtrace and request warm bootloader recovery
++    // on init signals, without enabling userdebug or permissive SELinux.
++    if (true /* SABRINA_BOOT_DIAGNOSTIC_SIGNAL_RECOVERY */) {
+         InstallRebootSignalHandlers();
+     }
+ 
+@@ -796,10 +801,13 @@ int SetupSelinux(char** argv) {
+     if (IsMicrodroid()) {
+         LoadSelinuxPolicyMicrodroid();
+     } else {
++        LOG(ERROR) << "sabrina_bootdiag: policy_load_begin";
+         LoadSelinuxPolicyAndroid();
++        LOG(ERROR) << "sabrina_bootdiag: policy_load_returned";
+     }
+ 
+     SelinuxSetEnforcement();
++    LOG(ERROR) << "sabrina_bootdiag: enforcement_configured";
+ 
+     if (IsMicrodroid() && android::virtualization::IsOpenDiceChangesFlagEnabled()) {
+         // We run restorecon of /microdroid_resources while we are still in kernel context to avoid

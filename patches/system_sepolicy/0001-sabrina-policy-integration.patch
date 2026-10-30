@@ -1,0 +1,41 @@
+diff --git a/private/llkd.te b/private/llkd.te
+index 9c96dfb..7cf9ca9 100644
+--- a/private/llkd.te
++++ b/private/llkd.te
+@@ -22,6 +22,8 @@ allow llkd domain:process sigkill;
+ userdebug_or_eng(`
+   allow llkd {
+     domain
++    # Sabrina: retained app isolation forbids debugger ptrace of apps.
++    -appdomain
+     -apexd
+     -kernel
+     -keystore
+diff --git a/private/property_contexts b/private/property_contexts
+index b325c2f..69b9594 100644
+--- a/private/property_contexts
++++ b/private/property_contexts
+@@ -1904,3 +1904,9 @@ ro.arm64.memtag.bootctl_supported u:object_r:arm64_memtag_bootctl_prop:s0 exact
+ 
+ # Wallet properties
+ ro.gms.wallet.se_capability u:object_r:wallet_prop:s0 exact int
++
++# Custom Sabrina firmware OTA guard.
++ro.build.firmware_ota_blocked u:object_r:build_prop:s0 exact bool
++
++# Custom Sabrina optional telemetry policy.
++ro.build.privacy_minimized u:object_r:build_prop:s0 exact bool
+diff --git a/public/te_macros b/public/te_macros
+index 849c8fd..30d7991 100644
+--- a/public/te_macros
++++ b/public/te_macros
+@@ -741,7 +741,8 @@ define(`add_service', `
+   # On debug builds with root, allow binder services to use binder over TCP.
+   # Not using rw_socket_perms_no_ioctl to avoid granting too many permissions.
+   userdebug_or_eng(`
+-    allow $1 su:tcp_socket { accept getopt read write };
++    # Sabrina: root debug binder-over-TCP conflicts with retained vendor isolation.
++    # Native binder IPC remains unchanged; omit this debug-only network grant.
+   ')
+ ')
+ 

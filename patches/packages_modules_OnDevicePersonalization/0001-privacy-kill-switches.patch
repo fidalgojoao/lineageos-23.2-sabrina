@@ -1,0 +1,30 @@
+diff --git a/federatedcompute/src/com/android/federatedcompute/services/common/PhFlags.java b/federatedcompute/src/com/android/federatedcompute/services/common/PhFlags.java
+index 69f49ab..5679dbd 100644
+--- a/federatedcompute/src/com/android/federatedcompute/services/common/PhFlags.java
++++ b/federatedcompute/src/com/android/federatedcompute/services/common/PhFlags.java
+@@ -77,6 +77,10 @@ public final class PhFlags implements Flags {
+     // Group of All Killswitches
+     @Override
+     public boolean getGlobalKillSwitch() {
++        // Sabrina privacy policy: getGlobalKillSwitch
++        if (android.os.SystemProperties.getBoolean("ro.build.privacy_minimized", false)) {
++            return true;
++        }
+         // The priority of applying the flag values: SystemProperties, PH (DeviceConfig),
+         // then hard-coded value.
+         return SystemProperties.getBoolean(
+diff --git a/src/com/android/ondevicepersonalization/services/PhFlags.java b/src/com/android/ondevicepersonalization/services/PhFlags.java
+index 297a8c5..027e1ef 100644
+--- a/src/com/android/ondevicepersonalization/services/PhFlags.java
++++ b/src/com/android/ondevicepersonalization/services/PhFlags.java
+@@ -108,6 +108,10 @@ public final class PhFlags implements Flags {
+     // Group of All Killswitches
+     @Override
+     public boolean getGlobalKillSwitch() {
++        // Sabrina privacy policy: getGlobalKillSwitch
++        if (android.os.SystemProperties.getBoolean("ro.build.privacy_minimized", false)) {
++            return true;
++        }
+         // The priority of applying the flag values: PH (DeviceConfig), then hard-coded value.
+         return DeviceConfig.getBoolean(
+                 /* namespace= */ NAMESPACE_ON_DEVICE_PERSONALIZATION,

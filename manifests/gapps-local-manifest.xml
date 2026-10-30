@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+    <remote name="sabrina-mtg" fetch="https://github.com/MindTheGapps/" />
+    <project name="vendor_gapps_tv" path="vendor/gapps_tv" remote="sabrina-mtg"
+             revision="378d98196fe90f7ba5da6ef925ebc23d5434e030"
+             upstream="refs/heads/baklava" clone-depth="1" />
+</manifest>

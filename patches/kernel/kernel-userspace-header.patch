@@ -1,0 +1,10 @@
+--- a/include/uapi/linux/videodev2.h
++++ b/include/uapi/linux/videodev2.h
+@@ -59,6 +59,7 @@
+ 
+ #ifndef __KERNEL__
+ #include <sys/time.h>
++#include <time.h>
+ #endif
+ #include <linux/compiler.h>
+ #include <linux/ioctl.h>

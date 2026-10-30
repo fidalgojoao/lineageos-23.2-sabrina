@@ -1,0 +1,26 @@
+# Proprietary files: extract your own, never publish them
+device/google/sabrina16/proprietary/*
+!device/google/sabrina16/proprietary/README.md
+
+# Images and archives
+*.img
+*.zip
+*.apk
+*.apex
+*.capex
+
+# Keys and certificates
+*.pem
+*.pk8
+*.key
+*.p12
+*.jks
+*.keystore
+*.avbpubkey
+avb_pkmd.bin
+
+# Device data
+*.bugreport
+bugreport-*
+last-kmsg*
+env*.img

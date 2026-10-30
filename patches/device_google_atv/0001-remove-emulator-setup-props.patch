@@ -1,0 +1,20 @@
+diff --git a/products/atv_emulator_vendor.mk b/products/atv_emulator_vendor.mk
+index fc7d43b..0ed0b43 100644
+--- a/products/atv_emulator_vendor.mk
++++ b/products/atv_emulator_vendor.mk
+@@ -41,7 +41,7 @@ ifneq ($(PRODUCT_IS_ATV_ARM64_SDK),true)
+         device/generic/goldfish/overlay
+ endif
+ 
+-PRODUCT_CHARACTERISTICS := emulator
++PRODUCT_CHARACTERISTICS := tv,nosdcard
+ 
+ PRODUCT_COPY_FILES += \
+     device/generic/goldfish/data/etc/config.ini.tv:config.ini
+@@ -75,5 +75,4 @@ PRODUCT_SYSTEM_EXT_PROPERTIES += \
+     ro.com.google.locationfeatures=1
+ 
+ # disable setupwizard
+-PRODUCT_SYSTEM_EXT_PROPERTIES += \
+-    ro.setupwizard.mode=DISABLED
++PRODUCT_SYSTEM_EXT_PROPERTIES +=

@@ -1,0 +1,41 @@
+--- a/include/linux/blk_types.h
++++ b/include/linux/blk_types.h
+@@ -251,9 +251,6 @@
+ 
+ #ifdef CONFIG_BLK_INLINE_ENCRYPTION
+ 	struct bio_crypt_ctx	*bi_crypt_context;
+-#if IS_ENABLED(CONFIG_DM_DEFAULT_KEY)
+-	bool			bi_skip_dm_default_key;
+-#endif
+ #endif
+ 
+ 	union {
+@@ -277,7 +274,15 @@
+ 	struct bio_set		*bi_pool;
+ 
+ 	ANDROID_OEM_DATA(1);
++	/* Sabrina: preserve the Android 14 bio layout using its reserved slot. */
++#if IS_ENABLED(CONFIG_DM_DEFAULT_KEY)
++#if !IS_ENABLED(CONFIG_ANDROID_KABI_RESERVE) || IS_ENABLED(CONFIG_AMLOGIC_MEMORY_OPT)
++#error "dm-default-key ABI backport requires the real reserved slot"
++#endif
++	ANDROID_KABI_USE(1, bool bi_skip_dm_default_key);
++#else
+ 	ANDROID_KABI_RESERVE(1);
++#endif
+ 	ANDROID_KABI_RESERVE(2);
+ 
+ 	/*
+--- a/block/bio.c
++++ b/block/bio.c
+@@ -305,6 +305,10 @@
+ {
+ 	bio_uninit(bio);
+ 	memset(bio, 0, BIO_RESET_BYTES);
++#if IS_ENABLED(CONFIG_DM_DEFAULT_KEY)
++	/* The flag is in reserved space beyond BIO_RESET_BYTES. */
++	bio->bi_skip_dm_default_key = false;
++#endif
+ 	atomic_set(&bio->__bi_remaining, 1);
+ }
+ EXPORT_SYMBOL(bio_reset);

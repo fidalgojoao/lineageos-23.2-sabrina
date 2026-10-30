@@ -1,0 +1,14 @@
+;; Sabrina's captured Google API-34 export has no counterparts or references
+;; for these labels. This inventory does not grant permissions or bypass any
+;; neverallow. It records new objects for the explicit current-API port.
+;; repair_mode_metadata_file: current /metadata/repair-mode label; also listed
+;; as a new object by upstream's API-33 inventory, absent from this OEM export.
+;; vendor_persist_camera_prop: Lineage camera package-list property labels.
+;; vendor_always_on_prop: Lineage TV backlight-animation property label.
+(type new_objects)
+(typeattribute new_objects)
+(typeattributeset new_objects
+  (new_objects
+   repair_mode_metadata_file
+   vendor_persist_camera_prop
+   vendor_always_on_prop))

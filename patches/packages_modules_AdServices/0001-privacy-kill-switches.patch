@@ -1,0 +1,37 @@
+diff --git a/adservices/service-core/java/com/android/adservices/service/PhFlags.java b/adservices/service-core/java/com/android/adservices/service/PhFlags.java
+index a08d8ed..c6f55a2 100644
+--- a/adservices/service-core/java/com/android/adservices/service/PhFlags.java
++++ b/adservices/service-core/java/com/android/adservices/service/PhFlags.java
+@@ -1631,6 +1631,10 @@ public final class PhFlags implements Flags {
+     @SuppressWarnings("AvoidSystemPropertiesUsage")
+     // TODO(b/300646389): call getFlagFromSystemPropertiesOrDeviceConfig() instead
+     public boolean getGlobalKillSwitch() {
++        // Sabrina privacy policy: getGlobalKillSwitch
++        if (android.os.SystemProperties.getBoolean("ro.build.privacy_minimized", false)) {
++            return true;
++        }
+         return SdkLevel.isAtLeastT()
+                 ? SystemProperties.getBoolean(
+                         getSystemPropertyName(FlagsConstants.KEY_GLOBAL_KILL_SWITCH),
+@@ -1975,6 +1979,10 @@ public final class PhFlags implements Flags {
+     @SuppressWarnings("AvoidSystemPropertiesUsage")
+     // TODO(b/300646389): call getFlagFromSystemPropertiesOrDeviceConfig() instead
+     public boolean getAdIdKillSwitch() {
++        // Sabrina privacy policy: getAdIdKillSwitch
++        if (android.os.SystemProperties.getBoolean("ro.build.privacy_minimized", false)) {
++            return true;
++        }
+         // Ignore Global Killswitch for adid.
+         return SystemProperties.getBoolean(
+                 getSystemPropertyName(FlagsConstants.KEY_ADID_KILL_SWITCH),
+@@ -1987,6 +1995,10 @@ public final class PhFlags implements Flags {
+     // TODO(b/300646389): call getFlagFromSystemPropertiesOrDeviceConfig() instead
+ 
+     public boolean getAppSetIdKillSwitch() {
++        // Sabrina privacy policy: getAppSetIdKillSwitch
++        if (android.os.SystemProperties.getBoolean("ro.build.privacy_minimized", false)) {
++            return true;
++        }
+         // Ignore Global Killswitch for appsetid.
+         return SystemProperties.getBoolean(
+                 getSystemPropertyName(FlagsConstants.KEY_APPSETID_KILL_SWITCH),

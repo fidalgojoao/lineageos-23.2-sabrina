@@ -1,0 +1,48 @@
+<?xml version='1.0' encoding='utf-8'?>
+<config>
+  <component-override package="com.google.android.gms">
+    <component class="com.google.android.gms.ads.identifier.service.AdvertisingIdService" enabled="false" />
+    <component class="com.google.android.gms.ads.identifier.service.AdvertisingIdNotificationService" enabled="false" />
+    <component class="com.google.android.gms.adid.service.AdIdProviderService" enabled="false" />
+    <component class="com.google.android.gms.ads.measurement.GmpConversionTrackingBrokerService" enabled="false" />
+    <component class="com.google.android.gms.analytics.AnalyticsReceiver" enabled="false" />
+    <component class="com.google.android.gms.analytics.service.AnalyticsService" enabled="false" />
+    <component class="com.google.android.gms.analytics.internal.PlayLogReportingService" enabled="false" />
+    <component class="com.google.android.gms.analytics.AnalyticsService" enabled="false" />
+    <component class="com.google.android.gms.analytics.AnalyticsTaskService" enabled="false" />
+    <component class="com.google.android.gms.clearcut.appdoctor.TestQosOverrideReceiver" enabled="false" />
+    <component class="com.google.android.gms.clearcut.debug.ClearcutDebugDumpService" enabled="false" />
+    <component class="com.google.android.gms.clearcut.uploader.QosUploaderService" enabled="false" />
+    <component class="com.google.android.gms.feedback.LegacyBugReportService" enabled="false" />
+    <component class="com.google.android.gms.feedback.FeedbackAsyncService" enabled="false" />
+    <component class="com.google.android.gms.feedback.OfflineReportSendTaskService" enabled="false" />
+    <component class="com.google.android.gms.measurement.PackageMeasurementReceiver" enabled="false" />
+    <component class="com.google.android.gms.measurement.PackageMeasurementService" enabled="false" />
+    <component class="com.google.android.gms.measurement.service.MeasurementBrokerService" enabled="false" />
+    <component class="com.google.android.gms.measurement.PackageMeasurementTaskService" enabled="false" />
+    <component class="com.google.android.gms.measurement.AppMeasurementReceiver" enabled="false" />
+    <component class="com.google.android.gms.measurement.AppMeasurementService" enabled="false" />
+    <component class="com.google.android.gms.measurement.AppMeasurementJobService" enabled="false" />
+  </component-override>
+  <component-override package="org.lineageos.lineageparts">
+    <component class="org.lineageos.lineageparts.lineagestats.ReportingServiceManager" enabled="false" />
+    <component class="org.lineageos.lineageparts.lineagestats.ReportingService" enabled="false" />
+    <component class="org.lineageos.lineageparts.lineagestats.StatsUploadJobService" enabled="false" />
+  </component-override>
+  <component-override package="com.android.ondevicepersonalization.services">
+    <component class="com.android.ondevicepersonalization.services.OnDevicePersonalizationManagingServiceImpl" enabled="false" />
+    <component class="com.android.ondevicepersonalization.services.OnDevicePersonalizationDebugServiceImpl" enabled="false" />
+    <component class="com.android.ondevicepersonalization.services.sharedlibrary.spe.OdpJobService" enabled="false" />
+    <component class="com.android.ondevicepersonalization.services.download.OnDevicePersonalizationDownloadProcessingJobService" enabled="false" />
+    <component class="com.android.ondevicepersonalization.services.maintenance.OnDevicePersonalizationMaintenanceJobService" enabled="false" />
+    <component class="com.android.ondevicepersonalization.services.data.user.UserDataCollectionJobService" enabled="false" />
+    <component class="com.android.ondevicepersonalization.services.download.mdd.MddJobService" enabled="false" />
+    <component class="com.android.ondevicepersonalization.services.reset.ResetDataJobService" enabled="false" />
+    <component class="com.android.ondevicepersonalization.services.data.errors.AggregateErrorDataReportingService" enabled="false" />
+    <component class="com.android.ondevicepersonalization.libraries.plugin.internal.PluginExecutorService" enabled="false" />
+    <component class="com.android.ondevicepersonalization.services.federatedcompute.OdpExampleStoreService" enabled="false" />
+    <component class="com.android.ondevicepersonalization.services.federatedcompute.OdpResultHandlingService" enabled="false" />
+    <component class="com.android.ondevicepersonalization.services.inference.IsolatedModelService" enabled="false" />
+    <component class="com.android.ondevicepersonalization.services.OnDevicePersonalizationBroadcastReceiver" enabled="false" />
+  </component-override>
+</config>
