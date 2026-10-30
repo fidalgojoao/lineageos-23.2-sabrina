@@ -1,42 +1,57 @@
 # LineageOS 23 for Chromecast with Google TV 4K (sabrina)
 
-An experimental Android 16 (LineageOS 23.2) port for the Chromecast with Google TV 4K, running on the device's Android 14 bootloader, stock-derived vendor partition and a repaired 5.15 kernel.
+An experimental Android 16 (LineageOS 23.2) port for the Chromecast with Google TV 4K. It runs on the device's Android 14 bootloader, a stock-based vendor partition and a repaired 5.15 kernel.
+
+This is a test build, not a daily-driver release. It has been tested on **one device**, stock build `UTTC.250917.004`, with a 1080p monitor and a 4K LG TV.
 
 > **Read [docs/RISKS.md](docs/RISKS.md) before doing anything.** A factory reset or an OTA update can relock the bootloader, and an OTA can stop you from ever unlocking it again.
 
-## This would not be possible without sabrina-unlock-v2
+## This depends on sabrina-unlock-v2
 
-This project depends entirely on **[oddsolutions/sabrina-unlock-v2](https://github.com/oddsolutions/sabrina-unlock-v2)**, by Nolen Johnson (npjohnson), Jan Altensen (Stricted) and Ray Volpe (Functioner). It's the exploit chain that unlocks the bootloader, and nothing here works without it. It uses [k-o-n-t-o-r/ghostlock-sabrina](https://github.com/k-o-n-t-o-r/ghostlock-sabrina) for temporary root.
+**[oddsolutions/sabrina-unlock-v2](https://github.com/oddsolutions/sabrina-unlock-v2)**, by Nolen Johnson (npjohnson), Jan Altensen (Stricted) and Ray Volpe (Functioner), is the exploit chain that unlocks the bootloader. Nothing here works without it. It uses [k-o-n-t-o-r/ghostlock-sabrina](https://github.com/k-o-n-t-o-r/ghostlock-sabrina) for temporary root.
 
 Follow that project's instructions to unlock your device. See [CREDITS.md](CREDITS.md) for everyone else.
 
-## Status
+## What works
 
-Tested on **one device**, stock build `UTTC.250917.004`, on a 1080p monitor and 4K LGTV. This is a test build, not a daily-driver release.
+**Working on the test device:**
 
-| Feature | Status |
-|---|---|
-| Boots to Google TV | Works |
-| Google first-boot setup | Works |
-| Gboard | Works |
-| Google TV screensaver as a system app | Works after a Play update |
-| Remote stays paired after reboot | Works |
-| Google sign-in, Play Store, voice search | Reported working |
-| OTA update services | Disabled, confirmed on the running device |
-| Android recovery-install block | In the build, not tested live |
-| Factory-reset block | In the build, not tested live |
-| SELinux enforcing | **Not yet tested.** The tested build is permissive |
-| Wi-Fi reconnect after reboot | **Open.** Can still be slow, especially with a hidden network on a DFS channel |
-| YouTube above 360p | Works, confirmed on a 1080p monitor and a 4K LG TV |
-| Holding Home opens Quick Settings | Works |
-| TV volume through the remote | Works after IR setup, on one LG TV |
-| Set up remote buttons in Settings | Works, through Remotes & Accessories |
-| Lineage-style recovery menu | Works with the device's button. Unsigned packages were refused |
-| Release-key signing | Works: wiped and booted to setup with the builder's own keys, on one device. No keys are included here |
-| HDR, DRM video, Cast, audio formats | **Not tested** |
-| Play Integrity or Google certification | **Not expected to pass** |
+- Booting to Google TV, first-boot setup, and Gboard
+- Google sign-in and the Play Store
+- YouTube above 360p
+- The remote staying paired after a reboot
+- TV volume and Input through the remote, after setting up remote buttons (one LG TV)
+- Holding Home to open Quick Settings
+- Google TV screensaver, after a Play update
+- Lineage-style recovery menu with the device's button
+- Signing with your own release keys
+- OTA update services disabled
+
+**Works, with problems:**
+
+- Wi-Fi reconnects by itself after a reboot, but it can be slow on a hidden network. See [known issues](docs/KNOWN-ISSUES.md#wi-fi-is-slow-after-a-reboot)
+
+**Not tested:**
+
+- HDR, DRM video, Cast and audio formats
+- SELinux enforcing. The tested build is permissive
+- A factory reset through the new recovery, and a real OTA reaching it. **Don't try these on a device you care about**
+
+**Not expected to work:**
+
+- Play Integrity and Google certification
 
 Full list: [docs/KNOWN-ISSUES.md](docs/KNOWN-ISSUES.md).
+
+## Guides
+
+1. [Risks and how to avoid them](docs/RISKS.md): read this first
+2. [Building](docs/BUILDING.md)
+3. [Signing with your own keys](docs/SIGNING.md)
+4. [Installing and rolling back](docs/INSTALL.md)
+5. [Known issues](docs/KNOWN-ISSUES.md)
+6. [What was broken and why](docs/ROOT-CAUSES.md)
+7. [SELinux policy review](docs/SELINUX-API-MIGRATION-REVIEW.md): for developers
 
 ## What's in this repository
 
@@ -45,23 +60,14 @@ Full list: [docs/KNOWN-ISSUES.md](docs/KNOWN-ISSUES.md).
 | [`device/google/sabrina16/`](device/google/sabrina16) | Device tree and product definition |
 | [`patches/`](patches) | Patches to AOSP, LineageOS and the kernel |
 | [`manifests/`](manifests) | Pinned source manifests |
-| [`scripts/`](scripts) | The scripts used to assemble the tested images, as reference |
-| [`docs/`](docs) | Risks, building, signing, installing, root causes |
+| [`scripts/`](scripts) | The scripts used to assemble the tested images, for reference |
+| [`docs/`](docs) | The guides above |
 
-**No ROM image is published, and no Google files are included.** This repository has no Google apps, vendor blobs or firmware, because they aren't ours to redistribute. You extract what's needed from your own copy of the stock OTA, and build with your own keys.
-
-## Guides
-
-1. [Risks and how to prevent them](docs/RISKS.md): read this first
-2. [Building](docs/BUILDING.md)
-3. [Signing with your own keys](docs/SIGNING.md)
-4. [Installing and rolling back](docs/INSTALL.md)
-5. [What was broken and why](docs/ROOT-CAUSES.md)
-6. [Known issues](docs/KNOWN-ISSUES.md)
+**There's no ROM image, and there are no Google files or signing keys here.** Google's apps, vendor files and firmware aren't ours to redistribute. You extract what's needed from your own copy of the stock OTA, and build with your own keys.
 
 ## Disclaimer
 
-You're responsible for any damage to your device. This work is unofficial and isn't affiliated with Google or the LineageOS project, and it may void your warranty. The fixes have only been tested on one device.
+You're responsible for any damage to your device. This work is unofficial, isn't affiliated with Google or the LineageOS project, and may void your warranty.
 
 ## License
 

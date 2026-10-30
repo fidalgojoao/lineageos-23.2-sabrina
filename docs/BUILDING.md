@@ -1,17 +1,17 @@
 # Building
 
-> **Expect to adapt things.** The tested images were made by building a system image and then editing it through an image pipeline, not by one clean build. The final device tree here includes those late fixes as source changes, but **that exact tree hasn't yet been through a full build and boot test.** See [the scripts README](../scripts/README.md).
+> **Expect to adapt things.** The tested images were made by building a system image and then editing it with scripts, not by one clean build. The late fixes are included here as source changes, but **this exact tree hasn't been through a full build and boot test.** See [the scripts README](../scripts/README.md).
 
-## Requirements
+## What you'll need
 
-- A Linux build host, or WSL2, with about 500 GB free
-- At least 16 GB of RAM plus swap. Soong hung a 15 GB VM with no swap, so add about 25 GB
-- `repo`, and the [AOSP build dependencies](https://source.android.com/docs/setup/start/requirements)
+- Linux or WSL2, with about 500 GB free
+- At least 16 GB of RAM plus swap. A 15 GB VM with no swap hung during the build, so add about 25 GB of swap
+- `repo` and the [AOSP build dependencies](https://source.android.com/docs/setup/start/requirements)
 - Your own copy of the stock OTA for `UTTC.250917.004`, linked from the [unlock project](https://github.com/oddsolutions/sabrina-unlock-v2)
 
 ## 1. Get the source
 
-The tested tree combines AOSP tag `android-16.0.0_r4` with LineageOS `lineage-23.2`, pinned in [`manifests/`](../manifests).
+The tree combines AOSP tag `android-16.0.0_r4` with LineageOS `lineage-23.2`, pinned in [`manifests/`](../manifests).
 
 ```bash
 mkdir android16 && cd android16
@@ -37,7 +37,7 @@ cp -r /path/to/this/repo/device/google/sabrina16 device/google/
 /path/to/this/repo/scripts/apply-patches.sh "$PWD"
 ```
 
-Patches in `patches/diagnostic/` aren't applied. They're the boot watchdog and logging used for debugging. See [ROOT-CAUSES.md](ROOT-CAUSES.md).
+This skips `patches/diagnostic/`, the boot watchdog and logging used for debugging, and `patches/kernel/`, which step 6 uses.
 
 ## 4. Extract the proprietary files
 
@@ -47,7 +47,7 @@ From your stock OTA, extract `system`, `vendor` and `product`, then run:
 /path/to/this/repo/scripts/extract-proprietary.sh /path/to/stock/product device/google/sabrina16/proprietary
 ```
 
-This copies the Google TV launcher, its screensaver and Gboard for TV into the tree. **Don't commit these or publish them.** The repository's `.gitignore` excludes them.
+This copies the Google TV launcher, its screensaver and Gboard for TV into the tree. **Don't commit or publish these.** `.gitignore` excludes them.
 
 ## 5. Build the system image
 
@@ -58,51 +58,53 @@ lunch lineage_gsi_sabrina16 "$aosp_target_release" user
 m -j4 systemimage checkvintf lpmake lpdump
 ```
 
-Before you use the build, sign it with your own keys. See [SIGNING.md](SIGNING.md).
+Sign the build with your own keys before you use it. See [SIGNING.md](SIGNING.md).
 
 ## 6. Build the kernel
 
-The stock kernel lacks `CONFIG_DM_DEFAULT_KEY`, which this Android 16 storage path requires.
+The stock kernel lacks `CONFIG_DM_DEFAULT_KEY`, which Android 16's storage needs.
 
 1. Fetch the sources for stock kernel `5.15.170-android14-11-gf4a1f03072af`: [`kernel/common`](https://android.googlesource.com/kernel/common) at `f4a1f03072af`, and the [Amlogic driver repo](https://nest-open-source.googlesource.com/manifest_repos/amlogic-driver) from Google's [Nest open-source manifests](https://nest-open-source.googlesource.com/manifests/).
 2. Use clang `r487747c` and pahole 1.23.
 3. Apply the Amlogic patch set, then the two patches in [`patches/kernel/`](../patches/kernel).
 4. Enable `CONFIG_DM_DEFAULT_KEY=y` on top of the stock config.
-5. Check that module symbol CRCs still match stock, so the stock vendor modules keep loading. The ABI patch exists for this reason.
+5. Check that module symbol CRCs still match stock, so the stock vendor modules keep loading. That's why the ABI patch exists.
 
-Reference scripts: `scripts/pipeline/prepare_kernel_*.py`, `start_kernel_*.py`.
+Reference scripts: `scripts/pipeline/prepare_kernel_*.py` and `start_kernel_*.py`.
 
 ## 7. Assemble the images
 
-A device build needs matching `boot`, `super` and `vbmeta`:
+The device needs matching `boot`, `super` and `vbmeta`:
 
-- **boot:** stock boot with your kernel, and a first-stage fstab without the `/product` entry.
-- **vendor:** stock vendor plus [`vendor-config/cgroups.json`](../device/google/sabrina16/vendor-config/cgroups.json) at `/etc/cgroups.json` (mode 0644, label `vendor_cgroup_desc_file`), plus the sepolicy and fstab adjustments.
-- **super:** `lpmake` with size `2084569088`, metadata size `65536`, 2 slots, group `amlogic_dynamic_partitions` of `2080374784` bytes, block size 4096. Partitions: system, vendor, product, odm, system_dlkm.
-- **vbmeta:** signed with your key, rollback index 0, flags 0.
+| Image | How it's made |
+|---|---|
+| boot | Stock boot with your kernel, and a first-stage fstab without the `/product` entry |
+| vendor | Stock vendor plus [`vendor-config/cgroups.json`](../device/google/sabrina16/vendor-config/cgroups.json) at `/etc/cgroups.json` (mode 0644, label `vendor_cgroup_desc_file`), plus the sepolicy and fstab adjustments |
+| super | `lpmake` with the settings below. Partitions: system, vendor, product, odm, system_dlkm |
+| vbmeta | Signed with your key, rollback index 0, flags 0 |
 
-Reference scripts: `scripts/pipeline/prepare_development_images.py`, `assemble_development_super.py`, `prepare_sparse_transfer.py`.
+`lpmake` settings: size `2084569088`, metadata size `65536`, 2 slots, group `amlogic_dynamic_partitions` of `2080374784` bytes, block size 4096.
 
-If you use the image pipeline instead of source changes, `prepare_watchdog_images.py` shows each post-build edit.
+Reference scripts: `prepare_development_images.py`, `assemble_development_super.py` and `prepare_sparse_transfer.py`, in `scripts/pipeline/`. If you edit images instead of changing source, `prepare_watchdog_images.py` shows each edit.
 
-## Optional: build in Play updates
-
-To avoid updating Google's apps after every wipe, you can build your own device's Play versions into the system image. `prepare_watchdog_images.py` does this after grabbing them with `adb pull`:
-
-- Android enforces its privileged-permission allowlist for built-in apps but not for Play updates, so generate entries for each app. A missing entry can stop the device booting.
-- Apps without `extractNativeLibs=false` need their libraries unpacked to `lib/arm/`.
-- Grow the system image. The 11 apps here took about 417 MB, and `super` had about 280 MB spare.
-- Play's split APKs match one device's language and screen density, so build your own and **never publish them**.
-
-## Sizes
+**Partition sizes:**
 
 | Partition | Bytes |
 |---|---|
 | super | 2,084,569,088 |
 | boot | 16,777,216 |
 | vbmeta | 2,097,152 |
-| recovery (untouched) | 25,165,824 |
+| recovery | 25,165,824 |
 
-## Before publishing a build
+## Optional: build in Play updates
+
+To avoid updating Google's apps after every wipe, you can build your own device's Play versions into the system image. `prepare_watchdog_images.py` does this after pulling them with `adb pull`. Watch out for these:
+
+- **Permissions:** Android enforces its privileged-permission allowlist for built-in apps, but not for Play updates, so generate entries for each app. A missing entry can stop the device booting.
+- **Native libraries:** apps without `extractNativeLibs=false` need their libraries unpacked to `lib/arm/`.
+- **Space:** grow the system image. The 11 apps here took about 417 MB, and `super` had about 280 MB spare.
+- **Publishing:** Play's split APKs match one device's language and screen density, so build your own and **never publish them**.
+
+## Before sharing a build
 
 Remove the diagnostic code and test with SELinux enforcing. Don't redistribute images that contain Google's apps or vendor files.

@@ -1,101 +1,76 @@
-# Sabrina policy API migration review — 29 October 2026
+# SELinux policy migration review
 
-Status: isolated source/API migration passes strict compilation and upstream
-structural/mapping tests. Actual release images and vendor integration are
-unfinished. This does not approve a flash or prove hardware operation.
+Written 29 October 2026. This is a technical record for anyone continuing the SELinux work.
 
-## Why this is a new policy port
+## Summary
 
-The original Android 14 platform export includes platform permissions and
-constraints, not just declarations. Retaining that export unchanged alongside
-the Android 16 platform creates contradictions, including old prohibitions on
-APEX metadata access that current APEX operation requires. Removing the needed
-current permissions would be an incorrect way to obtain zero.
+- **Done:** the vendor policy was moved to Android 16's policy API, and it compiles with zero assertion failures and passes the upstream checks.
+- **Not done:** it hasn't been put into real images or run on a device. **This doesn't prove it works, and isn't approval to flash it.** The builds tested on the device are still permissive.
 
-The new experiment generates the complete current public export from the actual
-system, system_ext and product source recipes in user variant, using the real
-version_policy compiler with API 202504. Old API-34 type imports remain available
-through a compatibility bridge. The report explicitly inventories the replaced
-old export: 1,714 neverallow, 168 neverallowx, 4,694 allow and 144 allowx rules,
-plus their audit rules. They are replaced by current source-generated platform
-policy; they are not claimed to be unchanged or semantically identical.
+## Why the policy had to be ported
 
-All current platform assertions, the freshly generated 429 public assertions
-and all 39 original vendor-private assertions are enabled and unmodified.
-Compiler -N is absent. No permissive domain or conditional boolean is present.
-The historical mixed-API test still has 44 failures and is retained as evidence.
-The zero is the strict migrated-API result, not a relabeling of that old test.
+The Android 14 platform export contains platform permissions and rules, not just declarations. Keeping it next to the Android 16 platform creates contradictions, such as old bans on the APEX metadata access that current APEX needs. Deleting the current permissions to silence those errors would be wrong.
 
-## Retained vendor permissions and scoped label repair
+So the port:
 
-The 3,060 original vendor-private allow rules remain, with precisely three
-target changes: hdcp_tx22, mediacodec and system_control keep their original
-permission bits for oemfs. Their old versioned target also mapped to the newly
-introduced bootanim_oem_file label. Only that new label, used by the three
-OEM animation ZIP paths, is excluded. OEM access is retained.
+- generates the current public export from the real system, system_ext and product sources (user variant), using the real `version_policy` compiler with API 202504
+- keeps old API-34 types available through a compatibility bridge
+- replaces the old export's 1,714 `neverallow`, 168 `neverallowx`, 4,694 `allow` and 144 `allowx` rules, plus their audit rules, with the generated policy. These are **not** claimed to mean the same thing
 
-The earlier classification repair keeps new animation files out of filesystem
-attributes, vendor VM data out of the read-only vendor-code attribute, and
-framework biometric properties out of vendor-internal property attributes.
-Both old export and vendor CIL duplicate these old classification sets, so both
-copies must be handled. Effective permissions change; literal preservation of
-allow statements alone is not presented as proof of equivalent operation.
+**Nothing was weakened to reach zero failures:**
 
-The three additional mapping inventory entries have documented source ownership
-and no original captured public/private vendor references. They are actual new
-objects, not permission exceptions: repair_mode_metadata_file (framework repair
-metadata), vendor_persist_camera_prop (Lineage camera package lists), and
-vendor_always_on_prop (Lineage TV backlight animation). Existing upstream and
-Lineage compatibility inventories cover the other new objects. Original type
-mappings and removed-type declarations remain included transitively.
+- All current platform assertions, the 429 generated public assertions and the 39 original vendor-private assertions are on and unmodified.
+- Compiler `-N` isn't used, and there's no permissive domain or conditional boolean.
+- The old mixed-API test still has 44 failures, and is kept as evidence. The zero comes from the strict migrated test, not from relabelling that one.
 
-## Validation evidence
+## What changed for vendor permissions
 
-- vendor-api-migration-experiment.json: strict current-API merge succeeds with
-  zero assertion failures. The resulting binary is 828,671 bytes, SHA256
-  a4932e746a74af2f15a78cc7eec59bb3e56477f57cb5361e5fe14a3b7af5c3c4.
-- migrated-policy-validation.json: all upstream structural tests, API-34 mapping
-  inventory, no-permissive and no-boolean checks pass. Existing image contexts
-  were used; repeat with matching final user-build contexts.
-- vendor-effective-permission-audit.json: compares actual stock and migrated
-  binary ordinary allow permissions for all 105 vendor-owned domains, using
-  separate processes to avoid the upstream query class's shared rule cache.
-  Ordinary character/block device permissions have no reductions.
+**Allow rules:** the 3,060 original vendor-private allow rules stay, with three target changes. `hdcp_tx22`, `mediacodec` and `system_control` keep their `oemfs` permissions, but no longer reach the new `bootanim_oem_file` label, used by the three OEM animation ZIP paths.
 
-All 105 domains lose access to the obsolete task_profiles_api_file label and
-overbroad vendor VM data access. Other reductions are module_request for four
-radio/network domains, servicemanager FD use for two face/GNSS domains, and
-Netflix legacy keystore/cgroup permissions. Current framework grants add updated
-cgroup/configuration and memory interfaces. Do not automatically restore old
-privileges or remove new permissions to reproduce the old binary. Kernel module
-loading, Netflix/DRM and resource-profile behavior need runtime tests.
+**Classification repairs:**
 
-The ordinary-allow audit does not check effective extended-ioctl whitelists,
-constraints, file/property relabeling, runtime services or Google certification.
-Original vendor explicit allowx statements are preserved by the narrowly scoped
-transformation, but that alone is not a full effective ioctl comparison.
+- New animation files stay out of filesystem attributes.
+- Vendor VM data stays out of the read-only vendor-code attribute.
+- Framework biometric properties stay out of vendor-internal property attributes.
 
-## Integration still required
+The old export and the vendor CIL both duplicate these sets, so both copies have to be handled. Effective permissions do change, so keeping the `allow` lines isn't proof of equal behaviour.
 
-prepare_release_vendor_policy.py prepares the reproducible actual-build staging
-step and refuses an unfinished or hash-mismatched release. Its source has been
-syntax-checked; it has not yet been executed against a completed release image.
-The vendor manifest must describe the migrated public API consistently with
-plat_sepolicy_vers.txt: both become 202504. libvintf's SepolicyVersion parser
-supports plain YYYYMM and the actual generated framework matrix lists 202504;
-the kernel's compiled binary policy format remains 30. Preserve the original
-HAL entries and vendor OS/FCM levels. Validate the actual changed manifest through
-full checkvintf with the selected kernel, not only this source inspection.
+**New mapping entries**, all new objects rather than permission exceptions, with no references in the original vendor policy:
 
-Complete the matching user system image, regenerate the export and bridge
-against those exact shipping CIL inputs, install matching vendor public-version
-metadata and policy, and prevent stale precompiled policy reuse. Re-run strict
-merge and structural/mapping checks on the integrated images and real labels.
-Run independent CTS neverallow checks where available. Verify VINTF using the
-selected real kernel and actual final vendor tree. Preserve original images.
+| Object | Owner |
+|---|---|
+| `repair_mode_metadata_file` | Framework repair metadata |
+| `vendor_persist_camera_prop` | Lineage camera package lists |
+| `vendor_always_on_prop` | Lineage TV backlight animation |
 
-The separate GSI-mount boot component changes the kernel and one first-stage
-fstab entry; its matching vendor fstab is required. Final vendor filesystem
-metadata, AVB signatures/rollback strategy, super layout, USB recovery and the
-bounded installation/rollback sequence remain gates. No device modifications
-are part of this offline review.
+## Evidence
+
+| Report | Result |
+|---|---|
+| `vendor-api-migration-experiment.json` | Strict merge succeeds with zero assertion failures. Binary: 828,671 bytes, SHA256 `a4932e746a74af2f15a78cc7eec59bb3e56477f57cb5361e5fe14a3b7af5c3c4` |
+| `migrated-policy-validation.json` | Upstream structural tests, the API-34 mapping inventory, and the no-permissive and no-boolean checks pass. It used existing image contexts, so repeat it with the final user build's |
+| `vendor-effective-permission-audit.json` | Compares stock and migrated `allow` permissions for all 105 vendor-owned domains. Ordinary character and block device permissions have no reductions |
+
+These reports aren't in this repository.
+
+**Permissions that were reduced:**
+
+- All 105 domains lose the obsolete `task_profiles_api_file` label and overbroad vendor VM data access.
+- Four radio and network domains lose `module_request`.
+- Two face and GNSS domains lose `servicemanager` FD use.
+- Netflix loses legacy keystore and cgroup permissions.
+
+Framework grants add updated cgroup, configuration and memory interfaces. Don't automatically restore old permissions or remove new ones just to match the old binary. Kernel module loading, Netflix and DRM, and resource profiles need testing on a device.
+
+**The audit doesn't cover:** extended ioctl whitelists, constraints, file and property relabelling, runtime services or Google certification. Vendor `allowx` statements are preserved, but that isn't a full ioctl comparison.
+
+## What's left
+
+1. Build the matching user system image, and regenerate the export and bridge from its exact CIL files.
+2. Install matching vendor policy and version metadata, and prevent stale precompiled policy being reused. The staging script, `prepare_release_vendor_policy.py`, has only been syntax-checked, and isn't in this repository.
+3. Update the vendor manifest so that it and `plat_sepolicy_vers.txt` both say `202504`. Keep the original HAL entries and vendor OS and FCM levels. The kernel's binary policy format stays at 30.
+4. Re-run the strict merge and the structural and mapping checks on the final images, with real labels.
+5. Run CTS `neverallow` checks where available.
+6. Run full `checkvintf` with the real kernel and final vendor tree.
+7. Confirm the remaining pieces: the kernel with its matching fstabs, vendor filesystem metadata, AVB signatures and rollback, the super layout, USB recovery, and a bounded install and rollback sequence.
+8. Keep the original images throughout.

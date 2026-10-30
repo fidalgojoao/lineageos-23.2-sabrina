@@ -1,16 +1,23 @@
 # Signing with your own keys
 
-> **Status:** the tested build used LineageOS `test-keys` and a development AVB key. `scripts/pipeline/sign_target_files_release.py`, `apply_release_signing.py` and `prepare_recovery_menu.py` have produced release-signed images that booted to setup and signed in after `fastboot -w`, on one device.
->
-> **Use your own keys.** This repository has no release keys and never will. Every builder generates their own, keeps them private and backs them up. Set `SABRINA_KEY_BACKUP` to a private folder outside any repository before running the signing script, and `SABRINA_SERIAL` to your device's serial for the flash scripts.
+**Use your own keys.** This repository has no release keys and never will. Each builder generates their own, keeps them private and backs them up.
 
-Don't ship `test-keys` builds. Those keys are public, so anyone could sign an app that the system trusts.
+**Status:** release-signed images booted to setup and signed in after `fastboot -w`, on one device. They were made with `sign_target_files_release.py`, `apply_release_signing.py` and `prepare_recovery_menu.py` in `scripts/pipeline/`.
 
-## What signing does and doesn't do
+Before running those scripts, set:
 
-- **It does** protect your platform apps and make the build report `release-keys`.
-- **It doesn't** make the device Google-certified, or help with Play Integrity or DRM.
-- **Google's apps keep Google's signatures.** They have to, so they're excluded from re-signing. Their signatures are what let them update through Play.
+- `SABRINA_KEY_BACKUP` to a private folder outside any repository
+- `SABRINA_SERIAL` to your device's serial
+
+## What signing does
+
+| It does | It doesn't |
+|---|---|
+| Protect your platform apps | Make the device Google-certified |
+| Make the build report `release-keys` | Help with Play Integrity or DRM |
+
+- **Never ship `test-keys` builds.** Those keys are public, so anyone could sign an app the system trusts.
+- **Google's apps keep Google's signatures.** They're excluded from re-signing, which is what lets them update through Play.
 - **Changing keys needs a wipe.** Use `fastboot -w` when you first switch. See [RISKS.md](RISKS.md).
 
 ## 1. Generate release keys
@@ -23,18 +30,23 @@ for key in releasekey platform shared media networkstack sdk_sandbox bluetooth n
 done
 ```
 
-Your exact key list depends on the tree, so check the `*.x509.pem` files in `build/make/target/product/security/` and any APEX keys.
+The exact key list depends on your tree, so check the `*.x509.pem` files in `build/make/target/product/security/`, and any APEX keys.
 
 Set a strong password when prompted, and store the keys **outside** the source tree.
 
 ## 2. Generate an AVB key
+
+AVB is the check that each partition matches what `vbmeta` describes.
 
 ```bash
 openssl genrsa -out ~/.android-certs/avb.pem 4096
 external/avb/avbtool.py extract_public_key --key ~/.android-certs/avb.pem --output ~/.android-certs/avb_pkmd.bin
 ```
 
-The bootloader is unlocked, so it doesn't check this key against a trusted one. The device boots in the `orange` state either way. The key still has to match across your images, because `vbmeta` must correctly describe each partition. The vendor fstab's `avb_keys` entry must also list your public key, which the tested build did with its development key.
+Because the bootloader is unlocked, it doesn't compare this key with a trusted one, and the device boots in the `orange` state either way. Two things still have to match:
+
+- All your images have to use this key.
+- The vendor fstab's `avb_keys` entry has to list your public key.
 
 ## 3. Sign the target files
 
@@ -78,5 +90,5 @@ Sign every partition with the same key, including `boot` and `vendor`. Keep the 
 ## Protect your keys
 
 - **Never commit keys.** `.gitignore` excludes common key files, but check before you push.
-- Back them up offline. If you lose them, future builds won't be updates to existing installs without a wipe.
-- If a key leaks, generate new ones and wipe.
+- **Back them up offline.** If you lose them, your next build can't update an existing install without a wipe.
+- **If a key leaks,** generate new ones and wipe.
