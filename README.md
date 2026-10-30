@@ -19,7 +19,7 @@ Tested on **one device**, stock build `UTTC.250917.004`, on a 1080p monitor and 
 | Boots to Google TV | Works |
 | Google first-boot setup | Works |
 | Gboard | Works |
-| Google TV screensaver as a system app | Works after a Play update |
+| Google TV screensaver as a system app | Works |
 | Remote stays paired after reboot | Works |
 | Google sign-in, Play Store, voice search | Reported working |
 | OTA update services | Disabled, confirmed on the running device |
