@@ -32,7 +32,7 @@ Tested on **one device**, stock build `UTTC.250917.004`, on a 1080p monitor and 
 | TV volume through the remote | Works after IR setup, on one LG TV |
 | Set up remote buttons in Settings | Works, through Remotes & Accessories |
 | Lineage-style recovery menu | Works with the device's button. Unsigned packages were refused |
-| Release-key signing | Tooling is here and images were built, **but not yet booted** |
+| Release-key signing | Works: wiped and booted to setup with the builder's own keys, on one device. No keys are included here |
 | HDR, DRM video, Cast, audio formats | **Not tested** |
 | Play Integrity or Google certification | **Not expected to pass** |
 

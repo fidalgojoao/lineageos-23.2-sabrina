@@ -1,6 +1,6 @@
 # Signing with your own keys
 
-> **Status:** the tested build used LineageOS `test-keys` and a development AVB key. `scripts/pipeline/sign_target_files_release.py`, `apply_release_signing.py` and `prepare_recovery_menu.py` have produced release-signed images that passed offline checks, but **those images haven't been booted yet**.
+> **Status:** the tested build used LineageOS `test-keys` and a development AVB key. `scripts/pipeline/sign_target_files_release.py`, `apply_release_signing.py` and `prepare_recovery_menu.py` have produced release-signed images that booted to setup and signed in after `fastboot -w`, on one device.
 >
 > **Use your own keys.** This repository has no release keys and never will. Every builder generates their own, keeps them private and backs them up. Set `SABRINA_KEY_BACKUP` to a private folder outside any repository before running the signing script, and `SABRINA_SERIAL` to your device's serial for the flash scripts.
 
