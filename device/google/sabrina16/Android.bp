@@ -52,6 +52,28 @@ runtime_resource_overlay {
     product_specific: true,
 }
 
+// Stock's Home long-press values: holding Home opens Quick Settings.
+runtime_resource_overlay {
+    name: "SabrinaFrameworkOverlay",
+    theme: "SabrinaFrameworkOverlay",
+    resource_dirs: ["rro/SabrinaFrameworkOverlay/res"],
+    manifest: "rro/SabrinaFrameworkOverlay/AndroidManifest.xml",
+    sdk_version: "current",
+    product_specific: true,
+    certificate: "platform",
+}
+
+// Adds the remote button setup to Remotes & Accessories in TV Settings.
+runtime_resource_overlay {
+    name: "SabrinaTvSettingsOverlay",
+    theme: "SabrinaTvSettingsOverlay",
+    resource_dirs: ["rro/SabrinaTvSettingsOverlay/res"],
+    manifest: "rro/SabrinaTvSettingsOverlay/AndroidManifest.xml",
+    sdk_version: "current",
+    product_specific: true,
+    certificate: "platform",
+}
+
 // Stock Gboard for TV, extracted from your own stock image.
 android_app_import {
     name: "SabrinaGboardTV",

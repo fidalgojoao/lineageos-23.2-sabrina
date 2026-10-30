@@ -59,6 +59,31 @@ Each entry here was diagnosed from device logs or source, and fixed. These notes
 - **Cause:** the Android 16 storage path needs `CONFIG_DM_DEFAULT_KEY`, which the stock kernel lacks, and enabling it naively shifts the kernel ABI that stock vendor modules depend on.
 - **Fix:** [`patches/kernel/kernel-dm-default-key-kabi.patch`](../patches/kernel/kernel-dm-default-key-kabi.patch) moves the new field into a reserved slot, preserving the module ABI.
 
+## Factory reset relocking the device
+
+- **Cause:** `ChromecastDevice::PostWipeData()` in stock recovery's `librecovery_ui_ext.so` wipes every partition listed in `ro.odm.fdr.extra_wipe_partitions=cri_data,env,param,tee`. The unlock lives in `env`.
+- **Fix:** the Lineage-style recovery uses Lineage's default plugin, which has no such wipe, and the property is removed. Static evidence only: no real reset has been run.
+
+## YouTube limited to 360p
+
+- **Cause:** the build reported a generic device.
+- **Fix:** `ro.product.product.device=sabrina` and `ro.product.product.model=Chromecast`. Confirmed by the user on a monitor and a TV.
+
+## TV volume and Input through the remote
+
+- **Cause:** stock's `TVAxel` (Android TV Infrared Service) was missing, so the remote couldn't be set up to send IR. CEC volume went to the soundbar, which acknowledged it and ignored it.
+- **Fix:** include `TVAxel`, its overlay and stock's permission entries, then run the setup. Stock links the menu from `ChromecastServiceAml`, so `SabrinaTvSettingsOverlay` fills TV Settings' own `bluetooth_ir_entry_slice_uri` slot instead.
+- **Also:** audio only reached HDMI after `patches/frameworks_base/0002` reported Amlogic's extcon state.
+
+## Holding Home opened the assistant
+
+- **Cause:** LineageOS's own key handler uses its action list, where `3` means search. Separately, `TvFrameworkOverlay` sets a `large` value that wins on TVs, and `ATVOverlay` points the panel at the wrong package.
+- **Fix:** `patches/frameworks_base/0002` honours stock's panel setting, and `SabrinaFrameworkOverlay` sets both values. Build it with `aapt2 --no-resource-deduping`, or the `large` copy is dropped.
+
+## Wi-Fi settings that differ from stock
+
+Stock's `com.google.android.wifi` sets `config_wifi_background_scan_support` true, `config_wifiSaeUpgradeEnabled` false and `config_wifiVerboseLoggingAlwaysOnLevel` 0. `SabrinaWifiOverlay` now matches. This hasn't been shown to solve slow reconnects.
+
 ## Debugging notes
 
 A silent hang leaves no logs, so diagnosis needed a way to capture them. `patches/diagnostic/` adds a thread in `init` that logs each boot stage, dumps logcat into the kernel log, and warm-reboots to the bootloader. Retained logs can then be read from a RAM-booted stock debug image.

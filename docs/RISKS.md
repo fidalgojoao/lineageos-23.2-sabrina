@@ -4,7 +4,9 @@ Two ordinary actions can undo your unlock: **a factory reset** and **an OTA upda
 
 ## Factory reset
 
-**What happens:** Factory Data Reset in stock recovery also resets the `env` partition, where the unlock state is stored. The bootloader relocks, and your custom button mapping is lost. The [unlock whitepaper](https://oddsolutions.github.io/Chromecast-with-Google-TV-4K-Secure-Boot-Bypass-v2/) describes this behaviour, and we saw a relock with both `env` copies reverted after stock recovery appeared during testing. The exact code that writes `env` hasn't been traced.
+**What happens:** Factory Data Reset in stock recovery also resets the `env` partition, where the unlock state is stored. The bootloader relocks, and your custom button mapping is lost. The [unlock whitepaper](https://oddsolutions.github.io/Chromecast-with-Google-TV-4K-Secure-Boot-Bypass-v2/) describes this behaviour, and we saw a relock with both `env` copies reverted after stock recovery appeared during testing. The cause is `PostWipeData()` in stock recovery's plugin, found by reading its code. See [ROOT-CAUSES.md](ROOT-CAUSES.md). The Lineage-style recovery removes it, but no real reset has proved `env` survives.
+
+**Sideloading:** the Lineage-style recovery offers "Install anyway?" for unverified zips while its menu is open. A zip can write anything. A real stock OTA could relock the device, and a LineageOS 22.2 zip's older bootloader could brick it through anti-rollback. Only choose Yes for a zip you know doesn't touch the bootloader.
 
 **You can land in that menu by accident.** After a failed boot, or when stock Android can't read its userdata, Rescue Party can reboot to a recovery screen saying "Can't load Android system" and offering Factory data reset.
 

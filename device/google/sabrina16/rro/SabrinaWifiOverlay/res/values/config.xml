@@ -8,4 +8,8 @@
     <integer translatable="false" name="config_wifiDisableReasonNoInternetPermanentDurationMs">60000</integer>
     <integer translatable="false" name="config_wifiDisableReasonNoInternetTemporaryDurationMs">60000</integer>
     <integer translatable="false" name="config_wifiDisableTemporaryMaximumDurationMs">300000</integer>
+    <!-- Stock's com.google.android.wifi defaults, which differ from AOSP's. -->
+    <bool translatable="false" name="config_wifi_background_scan_support">true</bool>
+    <bool translatable="false" name="config_wifiSaeUpgradeEnabled">false</bool>
+    <integer translatable="false" name="config_wifiVerboseLoggingAlwaysOnLevel">0</integer>
 </resources>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- Stock reaches this menu through ChromecastServiceAml, which this build does not have.
+     TV Settings shows the same menu in Remotes & Accessories once this entry is set. -->
+<resources>
+    <string translatable="false" name="bluetooth_ir_entry_slice_uri">content://com.google.android.tv.axel.sliceprovider/main</string>
+</resources>

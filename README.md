@@ -26,8 +26,14 @@ Tested on **one device**, stock build `UTTC.250917.004`, on a 1080p monitor and 
 | Android recovery-install block | In the build, not tested live |
 | Factory-reset block | In the build, not tested live |
 | SELinux enforcing | **Not yet tested.** The tested build is permissive |
-| Wi-Fi reconnect after reboot | Improved by the retry overlay, limited testing |
-| 4K, HDR, DRM video, Cast, audio formats | **Not tested** |
+| Wi-Fi reconnect after reboot | **Open.** Can still be slow, especially with a hidden network on a DFS channel |
+| YouTube above 360p | Works, confirmed on a 1080p monitor and a 4K LG TV |
+| Holding Home opens Quick Settings | Works |
+| TV volume through the remote | Works after IR setup, on one LG TV |
+| Set up remote buttons in Settings | Works, through Remotes & Accessories |
+| Lineage-style recovery menu | Works with the device's button. Unsigned packages were refused |
+| Release-key signing | Tooling is here and images were built, **but not yet booted** |
+| HDR, DRM video, Cast, audio formats | **Not tested** |
 | Play Integrity or Google certification | **Not expected to pass** |
 
 Full list: [docs/KNOWN-ISSUES.md](docs/KNOWN-ISSUES.md).

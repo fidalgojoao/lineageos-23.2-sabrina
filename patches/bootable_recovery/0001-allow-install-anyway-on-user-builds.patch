@@ -1,0 +1,20 @@
+diff --git a/recovery.cpp b/recovery.cpp
+index 44c7261..94a8ce2 100644
+--- a/recovery.cpp
++++ b/recovery.cpp
+@@ -179,12 +179,9 @@ bool ask_to_ab_reboot(Device* device) {
+ }
+ 
+ bool ask_to_continue_unverified(Device* device) {
+-  if (get_build_type() == "user") {
+-    return false;
+-  } else {
+-    device->GetUI()->SetProgressType(RecoveryUI::EMPTY);
+-    return yes_no(device, "Signature verification failed", "Install anyway?");
+-  }
++  // The caller only asks while the menu is visible, so automatic installs are still refused.
++  device->GetUI()->SetProgressType(RecoveryUI::EMPTY);
++  return yes_no(device, "Signature verification failed", "Install anyway?");
+ }
+ 
+ bool ask_to_continue_downgrade(Device* device) {

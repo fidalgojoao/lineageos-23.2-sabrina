@@ -17,6 +17,8 @@ apply() {
 }
 
 apply frameworks/base "$here/patches/frameworks_base/0001-sabrina-ota-wipe-guard-and-privacy.patch"
+apply frameworks/base "$here/patches/frameworks_base/0002-sabrina-hdmi-audio-and-remote-keys.patch"
+apply bootable/recovery "$here/patches/bootable_recovery/0001-allow-install-anyway-on-user-builds.patch"
 apply system/sepolicy "$here/patches/system_sepolicy/0001-sabrina-policy-integration.patch"
 apply vendor/lineage "$here/patches/vendor_lineage/0001-build-manifest-sandbox.patch"
 apply packages/modules/AdServices "$here/patches/packages_modules_AdServices/0001-privacy-kill-switches.patch"

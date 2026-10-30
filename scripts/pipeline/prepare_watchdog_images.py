@@ -60,6 +60,10 @@ try:
     prop_text=prop_text.replace('bluetooth.device.class_of_device=90,2,12','bluetooth.device.class_of_device='+stock_props['bluetooth.device.class_of_device'])
     assert prop_text.count('ro.com.google.clientidbase=android-google\n')==1
     prop_text=prop_text.replace('ro.com.google.clientidbase=android-google\n','ro.com.google.clientidbase='+stock_props['ro.com.google.clientidbase']+'\n')
+    # Report the real hardware to apps. The build's own fingerprint is deliberately left alone.
+    for prop,value in [('ro.product.product.device','sabrina'),('ro.product.product.model','Chromecast')]:
+        existing=re.findall(r'^'+re.escape(prop)+r'=.*$',prop_text,re.M);assert len(existing)==1,prop
+        prop_text=prop_text.replace(existing[0],prop+'='+value)
     assert prop_text.count('ro.build.characteristics=emulator')==1
     prop_text=prop_text.replace('ro.build.characteristics=emulator','ro.build.characteristics='+stock_props['ro.build.characteristics'])
     # This stack ignores Google's apply_identity_addr_after_paired, so a bonded remote's directed
@@ -205,6 +209,35 @@ try:
         if '/priv-app/' in location:
             names=re.findall(r"uses-permission(?:-sdk-23)?: name='([^']+)'",run('perms-'+package,[host/'aapt2','dump','badging',updates/package/'base.apk']))
             allowlist.append(f'    <privapp-permissions package="{package}">\n'+''.join(f'        <permission name="{n}"/>\n' for n in sorted(set(names)))+'    </privapp-permissions>\n')
+    # Android TV Infrared Service: the remote's IR setup for TV and soundbar volume, power and Input.
+    # Without it the remote only has CEC, which some soundbars acknowledge and then ignore.
+    axel=stock_product/'priv-app/TVAxel/TVAxel.apk';axel_overlay=stock_product/'overlay/AxelOverlay/ChromecastAxelOverlay.apk'
+    assert axel.is_file() and axel_overlay.is_file()
+    axel_dir='/system/product/priv-app/TVAxel';axel_overlay_dir='/system/product/overlay/AxelOverlay'
+    edits=[]
+    for folder in (axel_dir,axel_overlay_dir):
+        edits+=[f'mkdir {folder}',f'set_inode_field {folder} mode 040755',f'set_inode_field {folder} uid 0',
+            f'set_inode_field {folder} gid 0',f'ea_set -f {dir_label} {folder} security.selinux']
+    edits+=add_file(axel,axel_dir+'/TVAxel.apk')+add_file(axel_overlay,axel_overlay_dir+'/ChromecastAxelOverlay.apk')
+    # Stock's value for what holding Home does, and which app opens Quick Settings.
+    home_rro=Path('/opt/sabrina/watchdog-work/SabrinaFrameworkOverlay.apk');assert home_rro.is_file()
+    edits+=add_file(home_rro,'/system/product/overlay/SabrinaFrameworkOverlay.apk')
+    # Stock links this menu from ChromecastServiceAml; TV Settings has its own slot for it.
+    settings_rro=Path('/opt/sabrina/watchdog-work/SabrinaTvSettingsOverlay.apk');assert settings_rro.is_file()
+    edits+=add_file(settings_rro,'/system/product/overlay/SabrinaTvSettingsOverlay.apk')
+    default_stock=(stock_product/'etc/default-permissions/default-atv-permissions.xml').read_text()
+    default_entry=re.search(r'<exception\s+package="com\.google\.android\.tv\.axel".*?</exception>',default_stock,re.S)[0]
+    default_new=work/'default-sabrina-axel.xml';default_new.write_text('<?xml version="1.0" encoding="utf-8"?>\n<exceptions>\n    '+default_entry+'\n</exceptions>\n')
+    edits+=add_file(default_new,default_root+'/default-sabrina-axel.xml')
+    batch=work/'axel.debugfs';batch.write_text('\n'.join(edits)+'\n')
+    run('add-axel',[debugfs,'-w','-f',batch,system])
+    for local,path in ((axel,axel_dir+'/TVAxel.apk'),(axel_overlay,axel_overlay_dir+'/ChromecastAxelOverlay.apk'),(home_rro,'/system/product/overlay/SabrinaFrameworkOverlay.apk')):
+        back=work/'axel.readback';run('axel-check',[debugfs,'-R',f'dump {path} {back}',system]);assert digest(back)==digest(local),path
+        back.unlink()
+    axel_names=re.findall(r"uses-permission(?:-sdk-23)?: name='([^']+)'",run('perms-axel',[host/'aapt2','dump','badging',axel]))
+    stock_axel=re.search(r'<privapp-permissions package="com\.google\.android\.tv\.axel">.*?</privapp-permissions>',(stock_product/'etc/permissions/privapp-permissions-atv-product.xml').read_text(),re.S)[0]
+    axel_names+=re.findall(r'<permission name="([^"]+)"',stock_axel)
+    allowlist.append('    <privapp-permissions package="com.google.android.tv.axel">\n'+''.join(f'        <permission name="{n}"/>\n' for n in sorted(set(axel_names)))+'    </privapp-permissions>\n')
     # Android enforces this list for built-in privileged apps, but not for Play updates to them.
     allow_file=work/'privapp-permissions-sabrina-updates.xml'
     allow_file.write_text('<?xml version="1.0" encoding="utf-8"?>\n<permissions>\n'+''.join(allowlist)+'</permissions>\n')

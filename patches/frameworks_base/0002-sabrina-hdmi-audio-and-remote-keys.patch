@@ -1,0 +1,106 @@
+diff --git a/services/core/java/com/android/server/WiredAccessoryManager.java b/services/core/java/com/android/server/WiredAccessoryManager.java
+index 6a808b8..11e39d8 100644
+--- a/services/core/java/com/android/server/WiredAccessoryManager.java
++++ b/services/core/java/com/android/server/WiredAccessoryManager.java
+@@ -123,7 +123,58 @@ final class WiredAccessoryManager implements WiredAccessoryCallbacks {
+         mObserver = new WiredAccessoryObserver();
+     }
+ 
++    /**
++     * Amlogic reports HDMI through extcon rather than the switch class this file reads. Without
++     * this, audio policy only sees the speaker device and volume keys never reach HDMI-CEC.
++     */
++    private final class AmlogicHdmiObserver extends UEventObserver {
++        private static final String EXTCON_NAME = "ffd00000.amhdmitx";
++        private int mLastState = -1;
++
++        void init() {
++            startObserving(EXTCON_NAME);
++            update();
++        }
++
++        @Override
++        public void onUEvent(UEventObserver.UEvent event) {
++            update();
++        }
++
++        private void update() {
++            final java.io.File[] entries = new java.io.File("/sys/class/extcon").listFiles();
++            if (entries == null) {
++                return;
++            }
++            for (java.io.File entry : entries) {
++                try {
++                    final java.io.File name = new java.io.File(entry, "name");
++                    if (!EXTCON_NAME.equals(
++                            java.nio.file.Files.readString(name.toPath()).trim())) {
++                        continue;
++                    }
++                    final String value = java.nio.file.Files.readString(
++                            new java.io.File(entry, "state").toPath());
++                    final int state = value.contains("HDMI=1") ? 1 : 0;
++                    synchronized (mLock) {
++                        if (state == mLastState) {
++                            return;
++                        }
++                        mLastState = state;
++                    }
++                    Slog.i(TAG, "Amlogic HDMI audio state: " + state);
++                    mAudioManager.setWiredDeviceConnectionState(
++                            AudioManager.DEVICE_OUT_HDMI, state, "", "hdmi");
++                    return;
++                } catch (java.io.IOException e) {
++                    Slog.w(TAG, "Could not read " + entry, e);
++                }
++            }
++        }
++    }
++
+     private void onSystemReady() {
++        new AmlogicHdmiObserver().init();
+         if (mUseDevInputEventForAudioJack) {
+             int switchValues = 0;
+             if (mInputManager.getSwitchState(-1, InputDevice.SOURCE_ANY, SW_HEADPHONE_INSERT)
+diff --git a/services/core/java/com/android/server/policy/PhoneWindowManager.java b/services/core/java/com/android/server/policy/PhoneWindowManager.java
+index 69fefe3..947fed9 100644
+--- a/services/core/java/com/android/server/policy/PhoneWindowManager.java
++++ b/services/core/java/com/android/server/policy/PhoneWindowManager.java
+@@ -2455,10 +2455,17 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+                     }
+                     mHomePressed = true;
+                     performHapticFeedback(HapticFeedbackConstants.LONG_PRESS, "Home - Long Press");
+-                    // If long press home will launch assistant,
+-                    // it should pass this right invocation type.
+-                    performKeyAction(mHomeLongPressAction, event,
+-                            AssistUtils.INVOCATION_TYPE_HOME_BUTTON_LONG_PRESS);
++                    if (mContext.getResources().getInteger(
++                            com.android.internal.R.integer.config_longPressOnHomeBehavior)
++                            == LONG_PRESS_HOME_NOTIFICATION_PANEL) {
++                        // Google TV opens Quick Settings here. Lineage's Action list can't express it.
++                        toggleNotificationPanel();
++                    } else {
++                        // If long press home will launch assistant,
++                        // it should pass this right invocation type.
++                        performKeyAction(mHomeLongPressAction, event,
++                                AssistUtils.INVOCATION_TYPE_HOME_BUTTON_LONG_PRESS);
++                    }
+                     mHomeConsumed = true;
+                 }
+             }
+@@ -3988,6 +3995,16 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+                     return true;
+                 }
+         }
++        // Stock's Chromecast service forwards this key to the TV; this build has no such receiver.
++        if (keyCode == KeyEvent.KEYCODE_TV_INPUT) {
++            final HdmiControlManager hdmiControlManager = getHdmiControlManager();
++            final HdmiPlaybackClient hdmiClient = hdmiControlManager == null
++                    ? null : hdmiControlManager.getPlaybackClient();
++            if (hdmiClient != null) {
++                hdmiClient.sendKeyEvent(keyCode, event.getAction() == KeyEvent.ACTION_DOWN);
++                return true;
++            }
++        }
+         if (isValidGlobalKey(keyCode)
+                 && mGlobalKeyManager.handleGlobalKey(mContext, keyCode, event)) {
+             return true;
