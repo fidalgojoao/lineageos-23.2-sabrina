@@ -8,7 +8,7 @@ usage() { echo "usage: $0 /path/to/stock/product device/google/sabrina16/proprie
 stock=$1
 out=$2
 mkdir -p "$out"
-for apk in priv-app/TVLauncherXPrebuilt/TVLauncherXPrebuilt.apk app/LatinIMEGoogleTvPrebuilt/LatinIMEGoogleTvPrebuilt.apk; do
+for apk in priv-app/TVLauncherXPrebuilt/TVLauncherXPrebuilt.apk priv-app/TVDreamXPrebuilt/TVDreamXPrebuilt.apk app/LatinIMEGoogleTvPrebuilt/LatinIMEGoogleTvPrebuilt.apk; do
     [ -f "$stock/$apk" ] || { echo "error: missing $stock/$apk" >&2; exit 1; }
     cp -v "$stock/$apk" "$out/"
 done

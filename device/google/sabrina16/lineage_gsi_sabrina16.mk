@@ -24,12 +24,13 @@ $(call inherit-product, vendor/gapps_tv/arm/arm-vendor.mk)
 
 PRODUCT_SOONG_NAMESPACES += device/google/sabrina16
 SYSTEM_EXT_PRIVATE_SEPOLICY_DIRS += device/google/sabrina16/sepolicy/system_ext/private
-PRODUCT_PACKAGES += SabrinaGoogleTVLauncher SabrinaGboardTV SabrinaLegacyFrameworkMatrix4
+PRODUCT_PACKAGES += SabrinaGoogleTVLauncher SabrinaGoogleTVDream SabrinaGboardTV SabrinaLegacyFrameworkMatrix4
 PRODUCT_PACKAGES += SabrinaFrameworkExtensionMatrix
 
 PRODUCT_COPY_FILES += \
     device/google/sabrina16/permissions/privapp-permissions-sabrina-launcher.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/permissions/privapp-permissions-sabrina-launcher.xml \
     device/google/sabrina16/permissions/sabrina-launcher-defaults.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/default-permissions/sabrina-launcher-defaults.xml \
+    device/google/sabrina16/permissions/privapp-permissions-sabrina-dreamx.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/permissions/privapp-permissions-sabrina-dreamx.xml \
     device/google/sabrina16/permissions/sabrina-google-tv.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/sysconfig/sabrina-google-tv.xml \
     device/google/sabrina16/permissions/sabrina-ota-components.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/sysconfig/sabrina-ota-components.xml \
     device/google/sabrina16/permissions/sabrina-privacy-components.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/sysconfig/sabrina-privacy-components.xml

@@ -37,6 +37,14 @@ Each entry here was diagnosed from device logs or source, and fixed. These notes
 - **Cause:** only Leanback was included. Stock ships `LatinIMEGoogleTvPrebuilt` (Gboard for TV).
 - **Fix:** add Gboard from your stock image, and remove Leanback.
 
+## Screensaver settings: "Unable to load content"
+
+- **Symptom:** Google TV's screensaver settings show an error, and Google Photos isn't used.
+- **Cause:** the build shipped an older `Backdrop` app and no `TVDreamXPrebuilt`. Google TV's screensaver (`dreamx`) was installed from Play as a normal app, without stock's privileged permissions, and Android still ran the old one.
+- **Fix:** ship `dreamx` from your stock image as a privileged app, with its stock permission list, and remove `Backdrop`.
+- **To set it by hand:** `adb shell settings put secure screensaver_components com.google.android.apps.tv.dreamx/.service.Backdrop`. A wipe clears this, and the build doesn't yet make it the default.
+- **Note:** this was installed over existing data without a wipe.
+
 ## Kernel storage feature
 
 - **Cause:** the Android 16 storage path needs `CONFIG_DM_DEFAULT_KEY`, which the stock kernel lacks, and enabling it naively shifts the kernel ABI that stock vendor modules depend on.

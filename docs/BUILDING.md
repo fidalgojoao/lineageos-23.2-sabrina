@@ -47,7 +47,7 @@ From your stock OTA, extract `system`, `vendor` and `product`, then run:
 /path/to/this/repo/scripts/extract-proprietary.sh /path/to/stock/product device/google/sabrina16/proprietary
 ```
 
-This copies the Google TV launcher and Gboard for TV into the tree. **Don't commit these or publish them.** The repository's `.gitignore` excludes them.
+This copies the Google TV launcher, its screensaver and Gboard for TV into the tree. **Don't commit these or publish them.** The repository's `.gitignore` excludes them.
 
 ## 5. Build the system image
 

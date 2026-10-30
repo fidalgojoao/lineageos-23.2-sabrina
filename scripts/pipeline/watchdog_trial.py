@@ -6,7 +6,7 @@ SERIAL='YOUR_DEVICE_SERIAL';FB='/opt/sabrina/android16/out/host/linux-x86/bin/fa
 SIZES=dict(super=2084569088,boot=16777216,vbmeta=2097152,recovery=25165824)
 STOCK=base.parent/'stock-recovery-bundle-UTTC.250917.004/stock-images'
 parser=argparse.ArgumentParser()
-parser.add_argument('step',choices=['preflight','install','restore','reboot'])
+parser.add_argument('step',choices=['preflight','install','update','restore','reboot'])
 parser.add_argument('--mode',choices=['permissive','enforcing'],default='permissive')
 parser.add_argument('--authorized',action='store_true');args=parser.parse_args()
 def digest(p):
@@ -43,13 +43,14 @@ def wipe():
     assert code==0 and 'FAILED' not in text
     for name in ['userdata','cache','metadata']:assert re.search(r"Erasing '"+name+r"'.*?OKAY",text,re.S),name
 report=dict(step=args.step,mode=args.mode,started_unix=time.time(),preflight=preflight())
-if args.step in('install','restore','reboot'):assert args.authorized
-if args.step=='install':
+if args.step in('install','update','restore','reboot'):assert args.authorized
+if args.step in('install','update'):
     images=json.loads((base/'WATCHDOG-IMAGE-SET.json').read_text());chosen=images['boot_variants'][args.mode]
     sparse=json.loads((base/'WATCHDOG-SPARSE.json').read_text())['artifacts']['custom']
     report['flashed']=flash([('super',sparse['path'],sparse['sha256']),('boot',chosen['boot']['path'],chosen['boot']['sha256']),
         ('vbmeta',chosen['vbmeta']['path'],chosen['vbmeta']['sha256'])])
-    require_unlocked();wipe()
+    require_unlocked()
+    if args.step=='install':wipe()
 if args.step=='restore':
     report['flashed']=flash([('super','/opt/sabrina/sparse-transfer/stock-super-UNTESTED.sparse.img','3471663cb5f40729e587a1576ce25bc96bb2ca82b7feeaa15795564f882a2e2d'),
         ('boot',STOCK/'boot.img','c4cb0f2e405227e058d367b4ced20fa49fdc0cc89686c0c8dff5b6e3fa115934'),

@@ -84,11 +84,35 @@ try:
         run('rm'+path.replace('/','-'),[debugfs,'-w','-f',batch,system])
         check=run('check'+path.replace('/','-'),[debugfs,'-R',f'stat {path}',system])
         assert 'File not found' in check,path
+    def label_of(path,name):
+        out=work/name;run(name,[debugfs,'-R',f'ea_get -f {out} {path} security.selinux',source]);return out
     # Two extra setup wizards leave Android with no recognised one, so SetupWraith is denied
     # NETWORK_SETUP_WIZARD and crashes in getCurrentNetwork when leaving basic mode.
     rm_tree('/system/product/priv-app/TvProvision')
     rm_tree('/system/system_ext/priv-app/LineageSetupWizard')
     rm_tree('/system/product/app/LeanbackIME')
+    # Stock ships Google TV's screensaver as a privileged app; a Play-installed copy lacks its
+    # privileged permissions. The older GApps Backdrop is then redundant.
+    rm_tree('/system/product/priv-app/Backdrop')
+    stock_product=Path('/opt/sabrina/stock/product')
+    dream_apk=stock_product/'priv-app/TVDreamXPrebuilt/TVDreamXPrebuilt.apk';assert dream_apk.is_file()
+    perm_root='/system/product/etc/permissions';default_root='/system/product/etc/default-permissions'
+    dir_label=label_of('/system/product/priv-app','label-privapp-dir')
+    file_label=label_of('/system/product/priv-app/SetupWraithPrebuilt/SetupWraithPrebuilt.apk','label-privapp-file')
+    dream_dir='/system/product/priv-app/TVDreamXPrebuilt';dream_path=dream_dir+'/TVDreamXPrebuilt.apk'
+    def add_file(local,path):
+        return [f'write {local} {path}',f'set_inode_field {path} mode 0100644',f'set_inode_field {path} uid 0',
+            f'set_inode_field {path} gid 0',f'ea_set -f {file_label} {path} security.selinux']
+    edits=[f'mkdir {dream_dir}',f'set_inode_field {dream_dir} mode 040755',f'set_inode_field {dream_dir} uid 0',
+        f'set_inode_field {dream_dir} gid 0',f'ea_set -f {dir_label} {dream_dir} security.selinux']+add_file(dream_apk,dream_path)
+    # Only dreamx's stock entry is added, as its own file, so existing permission files stay as built.
+    stock_perm=(stock_product/'etc/permissions/privapp-permissions-atv-amati-product.xml').read_text()
+    entry=re.search(r'<privapp-permissions package="com.google.android.apps.tv.dreamx">.*?</privapp-permissions>',stock_perm,re.S)[0]
+    perm_new=work/'privapp-permissions-sabrina-dreamx.xml';perm_new.write_text('<?xml version="1.0" encoding="utf-8"?>\n<permissions>\n    '+entry+'\n</permissions>\n')
+    edits+=add_file(perm_new,perm_root+'/privapp-permissions-sabrina-dreamx.xml')
+    batch=work/'dreamx.debugfs';batch.write_text('\n'.join(edits)+'\n')
+    run('add-dreamx',[debugfs,'-w','-f',batch,system])
+    back=work/'dreamx.readback';run('dreamx-readback',[debugfs,'-R',f'dump {dream_path} {back}',system]);assert digest(back)==digest(dream_apk)
     # Inherited from atv_emulator_vendor.mk; stock does not set it, and it makes setup skip itself.
     ext_path='/system/system_ext/etc/build.prop'
     ext_stat=run('ext-prop-stat',[debugfs,'-R',f'stat {ext_path}',source])
@@ -105,8 +129,6 @@ try:
     ext_check=work/'ext-build.prop.readback';run('ext-prop-readback',[debugfs,'-R',f'dump {ext_path} {ext_check}',system])
     assert digest(ext_check)==digest(ext_new)
     run('rm-lineage-suw-xml',[debugfs,'-w','-R','rm /system/system_ext/etc/permissions/LineageSetupWizard.xml',system])
-    def label_of(path,name):
-        out=work/name;run(name,[debugfs,'-R',f'ea_get -f {out} {path} security.selinux',source]);return out
     guard=json.loads((base/'WIPE-GUARD-BUILD.json').read_text())
     tree=Path('/opt/sabrina/android16')
     for relative,expected in guard.items():

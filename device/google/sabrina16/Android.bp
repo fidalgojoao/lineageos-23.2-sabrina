@@ -31,6 +31,17 @@ android_app_import {
     ],
 }
 
+// Google TV's screensaver is privileged on stock; a Play-installed copy can't reach its settings.
+android_app_import {
+    name: "SabrinaGoogleTVDream",
+    apk: "proprietary/TVDreamXPrebuilt.apk",
+    preprocessed: true,
+    privileged: true,
+    product_specific: true,
+    dex_preopt: { enabled: false },
+    overrides: ["Backdrop"],
+}
+
 // Stock Gboard for TV, extracted from your own stock image.
 android_app_import {
     name: "SabrinaGboardTV",
