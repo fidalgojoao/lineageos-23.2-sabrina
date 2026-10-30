@@ -37,12 +37,21 @@ Each entry here was diagnosed from device logs or source, and fixed. These notes
 - **Cause:** only Leanback was included. Stock ships `LatinIMEGoogleTvPrebuilt` (Gboard for TV).
 - **Fix:** add Gboard from your stock image, and remove Leanback.
 
+## Wi-Fi slow to reconnect, or asking for the password again
+
+- **Symptom:** after a reboot, Wi-Fi took minutes to come back, or didn't return until the password was entered again.
+- **Cause (best supported by testing):** stock's `SabrinaWifiOverlayGoogle` targets `com.google.android.wifi.resources`, but this build's package is `com.android.wifi.resources`, so its values were missing. Android's defaults disable a network indefinitely after a password failure or a permanent no-internet result, and allow temporary disables of up to 18 hours. Stock uses 60 seconds and 5 minutes.
+- **Fix:** [`rro/SabrinaWifiOverlay`](../device/google/sabrina16/rro/SabrinaWifiOverlay) applies stock's values to the right package.
+- **Result:** on the reboot measured after the fix, the first scan to connection took about 7 seconds, compared with 94 before. That's one reboot, on one router, so more testing is welcome.
+- **Red herring:** `Failed to set DFS flag` also appears on stock, so it isn't the cause.
+
 ## Screensaver settings: "Unable to load content"
 
 - **Symptom:** Google TV's screensaver settings show an error, and Google Photos isn't used.
 - **Cause:** the build shipped an older `Backdrop` app and no `TVDreamXPrebuilt`. Google TV's screensaver (`dreamx`) was installed from Play as a normal app, without stock's privileged permissions, and Android still ran the old one.
 - **Fix:** ship `dreamx` from your stock image as a privileged app, with its stock permission list, and remove `Backdrop`.
 - **To set it by hand:** `adb shell settings put secure screensaver_components com.google.android.apps.tv.dreamx/.service.Backdrop`. A wipe clears this, and the build doesn't yet make it the default.
+- **Then update it:** the screensaver only worked after updating it from the Play Store. Stock's version 3.2 logs `Binding to mediashell failed` and `JWT token not available` against the newer Cast app.
 - **Note:** this was installed over existing data without a wipe.
 
 ## Kernel storage feature

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<!-- Stock's SabrinaWifiOverlayGoogle targets the Google Wi-Fi package this build does not have.
+     Without these values, one failed connection can disable a saved network until the password
+     is entered again, or for up to 18 hours. -->
+<resources>
+    <integer translatable="false" name="config_wifiDisableReasonByWrongPasswordDurationMs">60000</integer>
+    <integer translatable="false" name="config_wifiDisableReasonNoInternetPermanentDurationMs">60000</integer>
+    <integer translatable="false" name="config_wifiDisableReasonNoInternetTemporaryDurationMs">60000</integer>
+    <integer translatable="false" name="config_wifiDisableTemporaryMaximumDurationMs">300000</integer>
+</resources>

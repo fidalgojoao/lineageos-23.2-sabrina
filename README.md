@@ -19,14 +19,14 @@ Tested on **one device**, stock build `UTTC.250917.004`, on a 1080p monitor and 
 | Boots to Google TV | Works |
 | Google first-boot setup | Works |
 | Gboard | Works |
-| Google TV screensaver as a system app | Installed; settings page and Google Photos being verified |
+| Google TV screensaver as a system app | Works after a Play update |
 | Remote stays paired after reboot | Works |
 | Google sign-in, Play Store, voice search | Reported working |
 | OTA update services | Disabled, confirmed on the running device |
 | Android recovery-install block | In the build, not tested live |
 | Factory-reset block | In the build, not tested live |
 | SELinux enforcing | **Not yet tested.** The tested build is permissive |
-| Wi-Fi stability | **Known issue**: drops reported, cause unknown |
+| Wi-Fi reconnect after reboot | Improved by the retry overlay, limited testing |
 | 4K, HDR, DRM video, Cast, audio formats | **Not tested** |
 | Play Integrity or Google certification | **Not expected to pass** |
 

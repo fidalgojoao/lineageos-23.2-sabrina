@@ -1,6 +1,6 @@
 """Replace only init in the cgroup-fixed set; make permissive and enforcing boots. No USB access."""
 from pathlib import Path
-import hashlib,json,os,re,shlex,shutil,subprocess,sys,time
+import hashlib,json,os,re,shlex,shutil,subprocess,sys,time,zipfile
 base=Path(__file__).resolve().parent
 host=Path('/opt/sabrina/android16/out/host/linux-x86/bin');tools=base.parent/'mkbootimg-tools'
 parent=json.loads((base/'CGROUP-FIX-IMAGE-SET.json').read_text())
@@ -34,6 +34,13 @@ try:
     assert label.read_bytes()==b'u:object_r:init_exec:s0\0'
     info=run('system-avb',[host/'avbtool','info_image','--image',source])
     run('erase-footer',[host/'avbtool','erase_footer','--image',system])
+    # Room for the baked-in Play updates; the total still fits the super group's 2080374784 bytes.
+    system_partition_bytes=art['system']['bytes']+240*1024*1024
+    system_fs_bytes=system_partition_bytes-32*1024*1024
+    assert system_fs_bytes%4096==0 and system_fs_bytes>system.stat().st_size
+    run('grow-fsck',['e2fsck','-f','-y',system],allowed=(0,1))
+    run('grow-system',['resize2fs',system,str(system_fs_bytes//4096)])
+    assert system.stat().st_size==system_fs_bytes
     times=re.findall(TIMES,stat,re.M);assert len(times)==4
     edits=['rm /system/bin/init',f'write {init} /system/bin/init','set_inode_field /system/bin/init mode 0100755',
         'set_inode_field /system/bin/init uid 0','set_inode_field /system/bin/init gid 2000',
@@ -95,16 +102,21 @@ try:
     # privileged permissions. The older GApps Backdrop is then redundant.
     rm_tree('/system/product/priv-app/Backdrop')
     stock_product=Path('/opt/sabrina/stock/product')
-    dream_apk=stock_product/'priv-app/TVDreamXPrebuilt/TVDreamXPrebuilt.apk';assert dream_apk.is_file()
+    # Play's newer split APKs, pulled from this device: stock's 3.2 can't talk to the updated Cast app.
+    dream_files=sorted(Path('/opt/sabrina/watchdog-work/dreamx-play').glob('*.apk'));assert any(p.name=='base.apk' for p in dream_files)
     perm_root='/system/product/etc/permissions';default_root='/system/product/etc/default-permissions'
     dir_label=label_of('/system/product/priv-app','label-privapp-dir')
     file_label=label_of('/system/product/priv-app/SetupWraithPrebuilt/SetupWraithPrebuilt.apk','label-privapp-file')
-    dream_dir='/system/product/priv-app/TVDreamXPrebuilt';dream_path=dream_dir+'/TVDreamXPrebuilt.apk'
+    dream_dir='/system/product/priv-app/TVDreamXPrebuilt'
     def add_file(local,path):
         return [f'write {local} {path}',f'set_inode_field {path} mode 0100644',f'set_inode_field {path} uid 0',
             f'set_inode_field {path} gid 0',f'ea_set -f {file_label} {path} security.selinux']
     edits=[f'mkdir {dream_dir}',f'set_inode_field {dream_dir} mode 040755',f'set_inode_field {dream_dir} uid 0',
-        f'set_inode_field {dream_dir} gid 0',f'ea_set -f {dir_label} {dream_dir} security.selinux']+add_file(dream_apk,dream_path)
+        f'set_inode_field {dream_dir} gid 0',f'ea_set -f {dir_label} {dream_dir} security.selinux']
+    for local in dream_files:edits+=add_file(local,dream_dir+'/'+local.name)
+    # Stock's Sabrina Wi-Fi retry values, built for this build's Wi-Fi package name.
+    wifi_rro=Path('/opt/sabrina/watchdog-work/SabrinaWifiOverlay.apk');assert wifi_rro.is_file()
+    edits+=add_file(wifi_rro,'/system/product/overlay/SabrinaWifiOverlay.apk')
     # Only dreamx's stock entry is added, as its own file, so existing permission files stay as built.
     stock_perm=(stock_product/'etc/permissions/privapp-permissions-atv-amati-product.xml').read_text()
     entry=re.search(r'<privapp-permissions package="com.google.android.apps.tv.dreamx">.*?</privapp-permissions>',stock_perm,re.S)[0]
@@ -112,7 +124,8 @@ try:
     edits+=add_file(perm_new,perm_root+'/privapp-permissions-sabrina-dreamx.xml')
     batch=work/'dreamx.debugfs';batch.write_text('\n'.join(edits)+'\n')
     run('add-dreamx',[debugfs,'-w','-f',batch,system])
-    back=work/'dreamx.readback';run('dreamx-readback',[debugfs,'-R',f'dump {dream_path} {back}',system]);assert digest(back)==digest(dream_apk)
+    for local in dream_files:
+        back=work/('dreamx-'+local.name);run('readback-'+local.name,[debugfs,'-R',f'dump {dream_dir}/{local.name} {back}',system]);assert digest(back)==digest(local)
     # Inherited from atv_emulator_vendor.mk; stock does not set it, and it makes setup skip itself.
     ext_path='/system/system_ext/etc/build.prop'
     ext_stat=run('ext-prop-stat',[debugfs,'-R',f'stat {ext_path}',source])
@@ -155,11 +168,54 @@ try:
     batch=work/'gboard.debugfs';batch.write_text('\n'.join(edits)+'\n')
     run('add-gboard',[debugfs,'-w','-f',batch,system])
     back=work/'gboard.readback';run('gboard-readback',[debugfs,'-R',f'dump {apk} {back}',system]);assert digest(back)==digest(gboard)
+    # Bake in the Play updates from this device. Each keeps Google's signature, so nothing is repacked.
+    updates=Path('/opt/sabrina/watchdog-work/play-updates')
+    locations={}
+    for line in (updates/'map.txt').read_text().split():
+        package,location,_,_=line.split('|');locations[package]=location
+    assert len(locations)==11 and all(location.startswith('/system/product/') for location in locations.values())
+    allowlist=[]
+    for package,location in sorted(locations.items()):
+        apks=sorted((updates/package).glob('*.apk'));assert any(a.name=='base.apk' for a in apks),package
+        rm_tree(location)
+        edits=[f'mkdir {location}',f'set_inode_field {location} mode 040755',f'set_inode_field {location} uid 0',
+            f'set_inode_field {location} gid 0',f'ea_set -f {dir_label} {location} security.selinux']
+        for apk in apks:edits+=add_file(apk,location+'/'+apk.name)
+        # Without extractNativeLibs=false, a built-in app loads libraries from lib/arm, not its APK.
+        manifest=run('manifest-'+package,[host/'aapt2','dump','xmltree',updates/package/'base.apk','--file','AndroidManifest.xml'])
+        if not re.search(r'extractNativeLibs\(0x[0-9a-f]+\)=(?:\(type 0x12\)0x0|false)',manifest):
+            libs=[]
+            for apk in apks:
+                with zipfile.ZipFile(apk) as archive:
+                    for member in archive.namelist():
+                        if re.fullmatch(r'lib/armeabi-v7a/[^/]+\.so',member):
+                            target=work/'libs'/package/Path(member).name;target.parent.mkdir(parents=True,exist_ok=True)
+                            target.write_bytes(archive.read(member));libs.append(target)
+            if libs:
+                for sub in [location+'/lib',location+'/lib/arm']:
+                    edits+=[f'mkdir {sub}',f'set_inode_field {sub} mode 040755',f'set_inode_field {sub} uid 0',
+                        f'set_inode_field {sub} gid 0',f'ea_set -f {dir_label} {sub} security.selinux']
+                for lib in libs:edits+=add_file(lib,location+'/lib/arm/'+lib.name)
+                state.setdefault('extracted_native_libs',{})[package]=[lib.name for lib in libs]
+        batch=work/('bake-'+package+'.debugfs');batch.write_text('\n'.join(edits)+'\n')
+        run('bake-'+package,[debugfs,'-w','-f',batch,system])
+        for apk in apks:
+            back=work/'bake.readback';run('bake-check',[debugfs,'-R',f'dump {location}/{apk.name} {back}',system]);assert digest(back)==digest(apk),apk
+            back.unlink()
+        if '/priv-app/' in location:
+            names=re.findall(r"uses-permission(?:-sdk-23)?: name='([^']+)'",run('perms-'+package,[host/'aapt2','dump','badging',updates/package/'base.apk']))
+            allowlist.append(f'    <privapp-permissions package="{package}">\n'+''.join(f'        <permission name="{n}"/>\n' for n in sorted(set(names)))+'    </privapp-permissions>\n')
+    # Android enforces this list for built-in privileged apps, but not for Play updates to them.
+    allow_file=work/'privapp-permissions-sabrina-updates.xml'
+    allow_file.write_text('<?xml version="1.0" encoding="utf-8"?>\n<permissions>\n'+''.join(allowlist)+'</permissions>\n')
+    batch=work/'allowlist.debugfs';batch.write_text('\n'.join(add_file(allow_file,perm_root+'/privapp-permissions-sabrina-updates.xml'))+'\n')
+    run('add-allowlist',[debugfs,'-w','-f',batch,system])
+    state['baked_play_updates']={p:sorted(a.name for a in (updates/p).glob('*.apk')) for p in locations}
     run('fsck',['e2fsck','-f','-n',system])
     check=work/'init.readback';run('readback',[host/'debugfs_static','-R',f'dump /system/bin/init {check}',system])
     assert digest(check)==build['sha256']
     cmd=[host/'avbtool','add_hashtree_footer','--image',system,'--partition_name','system',
-        '--partition_size',art['system']['bytes'],'--algorithm','SHA256_RSA2048','--key',key,'--rollback_index','0','--hash_algorithm','sha256']
+        '--partition_size',system_partition_bytes,'--algorithm','SHA256_RSA2048','--key',key,'--rollback_index','0','--hash_algorithm','sha256']
     for name,value in re.findall(r"^    Prop: (\S+) -> '([^']*)'$",info,re.M):cmd+=['--prop',name+':'+value]
     run('sign-system',cmd)
     names=['boot','dt','dtbo','odm','product','system','system_dlkm','vendor']

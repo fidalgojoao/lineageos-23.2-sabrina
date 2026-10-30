@@ -85,6 +85,15 @@ Reference scripts: `scripts/pipeline/prepare_development_images.py`, `assemble_d
 
 If you use the image pipeline instead of source changes, `prepare_watchdog_images.py` shows each post-build edit.
 
+## Optional: build in Play updates
+
+To avoid updating Google's apps after every wipe, you can build your own device's Play versions into the system image. `prepare_watchdog_images.py` does this after grabbing them with `adb pull`:
+
+- Android enforces its privileged-permission allowlist for built-in apps but not for Play updates, so generate entries for each app. A missing entry can stop the device booting.
+- Apps without `extractNativeLibs=false` need their libraries unpacked to `lib/arm/`.
+- Grow the system image. The 11 apps here took about 417 MB, and `super` had about 280 MB spare.
+- Play's split APKs match one device's language and screen density, so build your own and **never publish them**.
+
 ## Sizes
 
 | Partition | Bytes |

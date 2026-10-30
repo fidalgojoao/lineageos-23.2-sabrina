@@ -24,7 +24,7 @@ $(call inherit-product, vendor/gapps_tv/arm/arm-vendor.mk)
 
 PRODUCT_SOONG_NAMESPACES += device/google/sabrina16
 SYSTEM_EXT_PRIVATE_SEPOLICY_DIRS += device/google/sabrina16/sepolicy/system_ext/private
-PRODUCT_PACKAGES += SabrinaGoogleTVLauncher SabrinaGoogleTVDream SabrinaGboardTV SabrinaLegacyFrameworkMatrix4
+PRODUCT_PACKAGES += SabrinaGoogleTVLauncher SabrinaGoogleTVDream SabrinaGboardTV SabrinaWifiOverlay SabrinaLegacyFrameworkMatrix4
 PRODUCT_PACKAGES += SabrinaFrameworkExtensionMatrix
 
 PRODUCT_COPY_FILES += \

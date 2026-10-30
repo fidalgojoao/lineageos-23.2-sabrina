@@ -42,6 +42,16 @@ android_app_import {
     overrides: ["Backdrop"],
 }
 
+// Stock's Sabrina Wi-Fi retry values, for this build's Wi-Fi package name.
+runtime_resource_overlay {
+    name: "SabrinaWifiOverlay",
+    theme: "SabrinaWifiOverlay",
+    resource_dirs: ["rro/SabrinaWifiOverlay/res"],
+    manifest: "rro/SabrinaWifiOverlay/AndroidManifest.xml",
+    sdk_version: "current",
+    product_specific: true,
+}
+
 // Stock Gboard for TV, extracted from your own stock image.
 android_app_import {
     name: "SabrinaGboardTV",

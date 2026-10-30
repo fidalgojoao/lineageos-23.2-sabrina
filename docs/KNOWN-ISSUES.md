@@ -2,13 +2,15 @@
 
 ## Open
 
-- **Wi-Fi drops:** the connection has been reported dropping, sometimes needing the password again. Auto-join works at boot but can take about a minute. The cause hasn't been found, and no drop has been captured in a log yet.
+- **Wi-Fi:** slow reconnects after reboot improved with the retry overlay (see [ROOT-CAUSES.md](ROOT-CAUSES.md)), but this has had limited testing. Please report any further drops.
 - **Blank tab in the launcher:** an unlabelled tab appears after "Library" and opens the search page. It's a `guide_page_tab_title` with empty text inside Google's launcher. It's harmless, and may change with launcher updates.
 - **SELinux:** the tested build is permissive. An enforcing build still has to be tested, and earlier logs show `vendor_init` property denials to review.
 - **Cast:** logs show `Cannot get device credentials` and, every 5 seconds, `Could not sign message in SSLPrivateKeyCastInternal::Sign`. The `castkey` DRM HAL is registered, and the cause hasn't been found. Cast is untested and may not work, and Google services that rely on device authentication may fail. The screensaver settings request to `clients3.google.com/cast/chromecast/home/settings/device` returned 404 before the privileged-app fix.
 - **Certification:** this build reports its own LineageOS fingerprint and isn't Google-certified. Apps that check Play Integrity or certification may refuse to run or limit quality.
 
 ## Untested
+
+- **Play updates built into the image.** The tested image has the 11 Play-updated Google apps built in, with a generated permission allowlist and extracted native libraries. The device installed them without a wipe and kept using its identical `/data/app` copies, so **the built-in copies themselves haven't run**. A wrong allowlist could stop a wiped device from booting.
 
 - 4K output. Only a 1080p monitor has been used so far, and stock offered the same modes on it.
 - HDR, Dolby Vision and Dolby Atmos.
