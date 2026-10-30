@@ -1,4 +1,4 @@
-# LineageOS 23 for Chromecast with Google TV 4K (sabrina)
+# LineageOS 23.2 for Chromecast with Google TV 4K (sabrina)
 
 An experimental Android 16 (LineageOS 23.2) port for the Chromecast with Google TV 4K. It runs on the device's Android 14 bootloader, a stock-based vendor partition and a repaired 5.15 kernel.
 
@@ -22,7 +22,7 @@ Follow that project's instructions to unlock your device. See [CREDITS.md](CREDI
 - The remote staying paired after a reboot
 - TV volume and Input through the remote, after setting up remote buttons (one LG TV)
 - Holding Home to open Quick Settings
-- Google TV screensaver, after a Play update
+- Google TV screensaver
 - Lineage-style recovery menu with the device's button
 - Signing with your own release keys
 - OTA update services disabled
