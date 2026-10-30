@@ -12,7 +12,7 @@ Follow that project's instructions to unlock your device. See [CREDITS.md](CREDI
 
 ## Status
 
-Tested on **one device**, stock build `UTTC.250917.004`, on a 1080p monitor. This is a test build, not a daily-driver release.
+Tested on **one device**, stock build `UTTC.250917.004`, on a 1080p monitor and 4K LGTV. This is a test build, not a daily-driver release.
 
 | Feature | Status |
 |---|---|
