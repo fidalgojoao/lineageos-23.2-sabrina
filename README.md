@@ -1,4 +1,4 @@
-# LineageOS 23 for Chromecast with Google TV 4K (sabrina)
+# LineageOS 23.2 for Chromecast with Google TV 4K (sabrina)
 
 An experimental Android 16 (LineageOS 23.2) port for the Chromecast with Google TV 4K, running on the device's Android 14 bootloader, stock-derived vendor partition and a repaired 5.15 kernel.
 
