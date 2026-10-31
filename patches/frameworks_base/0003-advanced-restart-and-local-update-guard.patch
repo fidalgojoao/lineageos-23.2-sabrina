@@ -1,0 +1,104 @@
+diff --git a/packages/SystemUI/src/com/android/systemui/globalactions/GlobalActionsDialogLite.java b/packages/SystemUI/src/com/android/systemui/globalactions/GlobalActionsDialogLite.java
+index 2a12c0d..f388bca 100644
+--- a/packages/SystemUI/src/com/android/systemui/globalactions/GlobalActionsDialogLite.java
++++ b/packages/SystemUI/src/com/android/systemui/globalactions/GlobalActionsDialogLite.java
+@@ -655,7 +655,15 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
+     }
+ 
+     private boolean shouldShowRestartSubmenu() {
+-        return PowerMenuUtils.isAdvancedRestartPossible(mContext);
++        return PowerMenuUtils.isAdvancedRestartPossible(mContext) && !isTelevision();
++    }
++
++    private boolean shouldShowRestartActionsInline() {
++        return PowerMenuUtils.isAdvancedRestartPossible(mContext) && isTelevision();
++    }
++
++    private boolean isTelevision() {
++        return mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK);
+     }
+ 
+     /**
+@@ -820,6 +828,12 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
+             addedRestartKeys.add(actionKey);
+         }
+ 
++        if (shouldShowRestartActionsInline() && tempActions.contains(restartAction)) {
++            int inlineIndex = tempActions.indexOf(restartAction) + 1;
++            tempActions.add(inlineIndex, blAction);
++            tempActions.add(inlineIndex, recAction);
++        }
++
+         // replace power and restart with a single power options action, if needed
+         if (tempActions.contains(shutdownAction) && tempActions.contains(restartAction)
+                 && tempActions.size() > getMaxShownPowerItems()) {
+diff --git a/services/core/java/com/android/server/recoverysystem/FirmwareOtaPolicy.java b/services/core/java/com/android/server/recoverysystem/FirmwareOtaPolicy.java
+index a649e0b..23bf07e 100644
+--- a/services/core/java/com/android/server/recoverysystem/FirmwareOtaPolicy.java
++++ b/services/core/java/com/android/server/recoverysystem/FirmwareOtaPolicy.java
+@@ -1,17 +1,49 @@
+ /* SPDX-License-Identifier: Apache-2.0 */
+ package com.android.server.recoverysystem;
+ 
++import android.os.FileUtils;
++import android.os.RecoverySystem;
++
++import java.io.File;
++import java.io.IOException;
++import java.security.GeneralSecurityException;
++import java.util.List;
++
+ /** Recovery OTA policy for the custom Sabrina image; unrelated to APK/APEX updates. */
+ final class FirmwareOtaPolicy {
+     private FirmwareOtaPolicy() {}
+ 
+-    static boolean blocksRecoveryCommand(boolean firmwareOtaBlocked, String command) {
++    private static final String LOCAL_UPDATE_DIR = "/data/lineageos_updates/";
++    private static final String BLOCK_MAP_ARGUMENT = "--update_package=@/cache/recovery/block.map";
++
++    /** True only for the Updater's own imported package, signed by a key in otacerts.zip. */
++    static boolean isVerifiedLocalUpdate(String command) {
++        if (command == null || !List.of(command.split("\n")).contains(BLOCK_MAP_ARGUMENT)) {
++            return false;
++        }
++        try {
++            File file = new File(FileUtils.readTextFile(
++                    RecoverySystem.UNCRYPT_PACKAGE_FILE, 0, null).trim());
++            if (!file.getCanonicalPath().startsWith(LOCAL_UPDATE_DIR)) {
++                return false;
++            }
++            RecoverySystem.verifyPackage(file, null, null);
++            return true;
++        } catch (IOException | GeneralSecurityException e) {
++            return false;
++        }
++    }
++
++    static boolean blocksRecoveryCommand(boolean firmwareOtaBlocked, String command,
++            boolean verifiedLocalUpdate) {
+         if (!firmwareOtaBlocked || command == null) {
+             return false;
+         }
+         for (String argument : command.split("\n")) {
+             if (argument.equals("--update_package") || argument.startsWith("--update_package=")) {
+-                return true;
++                if (!verifiedLocalUpdate) {
++                    return true;
++                }
+             }
+             // Stock recovery's factory reset also resets env, which relocks this device.
+             // Userdata must be wiped with fastboot -w instead.
+diff --git a/services/core/java/com/android/server/recoverysystem/RecoverySystemService.java b/services/core/java/com/android/server/recoverysystem/RecoverySystemService.java
+index 5ba0533..952be49 100644
+--- a/services/core/java/com/android/server/recoverysystem/RecoverySystemService.java
++++ b/services/core/java/com/android/server/recoverysystem/RecoverySystemService.java
+@@ -1100,7 +1100,8 @@ public class RecoverySystemService extends IRecoverySystem.Stub implements Reboo
+         // do not use recovery --update_package and remain unaffected.
+         final boolean firmwareOtaBlocked = "true".equalsIgnoreCase(
+                 mInjector.systemPropertiesGet("ro.build.firmware_ota_blocked"));
+-        if (isSetup && FirmwareOtaPolicy.blocksRecoveryCommand(firmwareOtaBlocked, command)) {
++        if (isSetup && FirmwareOtaPolicy.blocksRecoveryCommand(firmwareOtaBlocked, command,
++                firmwareOtaBlocked && FirmwareOtaPolicy.isVerifiedLocalUpdate(command))) {
+             Slog.w(TAG, "Recovery firmware OTA installation is disabled by this build");
+             return false;
+         }

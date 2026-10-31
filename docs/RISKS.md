@@ -71,6 +71,20 @@ The Lineage-style recovery offers **Install anyway?** for a zip it can't verify.
 
 **Only choose Yes for a zip you know doesn't touch the bootloader.** Choosing No stops the install, with `error 21`, `status 2` and `Installation aborted`. That's the expected result.
 
+## The Updater
+
+The Updater installs local zips only. It has no update server, background checks or internet permission. Android lets an install through only if the zip is in the Updater's own folder and signed with a key in the device's `otacerts.zip`, which should be your release key. Other recovery installs stay blocked, and a Google OTA or a LineageOS 22.2 zip should be refused for not being signed with your key. That refusal hasn't been tested with a real OTA.
+
+The zips from `make_local_update.py` never contain `bootloader`, `env`, `logo` or `recovery`. The Updater's recovery switch writes only the `recovery` partition.
+
+## Advanced restart
+
+With Advanced restart on, Recovery is one click away in the power menu, and recovery has Factory data reset. **Don't choose that option.** No real reset has proved your unlock survives it.
+
+## Rooted debugging
+
+To allow the Rooted debugging switch, this build sets `ro.debuggable=1`, whether the switch is on or off. Any app can then be debugged over adb, and some banking, streaming or DRM apps may refuse to run or limit quality. Anyone with an authorized adb key can get root, so only approve computers you trust.
+
 ## Other ways to brick or lock yourself out
 
 - **Older LineageOS builds:** per the unlock project, 22.2 and older `sabrina` builds flash an older bootloader, and anti-rollback will brick the device.

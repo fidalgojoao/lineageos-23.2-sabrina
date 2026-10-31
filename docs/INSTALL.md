@@ -9,7 +9,7 @@ Read [RISKS.md](RISKS.md) first. You'll need your own images, built by following
 3. [Flash the ROM](#3-flash-the-rom)
 4. [Finish setup](#4-finish-setup)
 
-Also: [updating without a wipe](#updating-without-a-wipe), [the optional recovery](#optional-lineage-style-recovery), [rolling back](#rolling-back-to-stock) and [troubleshooting](#if-something-goes-wrong).
+Also: [updating without a wipe](#updating-without-a-wipe), [the Updater](#updating-with-the-updater), [the optional recovery](#optional-lineage-style-recovery), [rolling back](#rolling-back-to-stock) and [troubleshooting](#if-something-goes-wrong).
 
 ## 1. Get ready
 
@@ -100,6 +100,22 @@ The first boot takes 2–3 minutes. The logo stays on screen until Android's gra
 ## Updating without a wipe
 
 If your new build uses **the same keys** as the one on the device, you can flash `super`, `boot` and `vbmeta` as above and skip `fastboot -w`. Your account and apps stay in place. Switching keys, or switching from stock, needs a wipe.
+
+## Updating with the Updater
+
+**No update has been installed this way yet, so keep your fastboot images and USB cable ready.** The first install of a build with the Updater has to use fastboot.
+
+1. Build a signed zip with `scripts/pipeline/make_local_update.py`.
+2. Copy it to the Download folder or a USB drive:
+
+   ```bash
+   adb push update.zip /sdcard/Download/
+   ```
+
+3. Go to Settings → System → Updater → Install local update, and select the zip.
+4. Choose whether to turn on the recovery switch, then install it.
+
+The list shows zips on internal storage and USB drives, newest first. Zips not signed with your key are refused.
 
 ## Optional: Lineage-style recovery
 

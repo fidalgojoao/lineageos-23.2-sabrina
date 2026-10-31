@@ -20,7 +20,15 @@ It reports itself as `sabrina`, which YouTube needs for quality above 360p, but 
 
 ### SELinux is permissive
 
-An enforcing build still has to be tested, and earlier logs show `vendor_init` property denials to review. See [the SELinux review](SELINUX-API-MIGRATION-REVIEW.md).
+An enforcing build still has to be tested, and earlier logs show `vendor_init` property denials to review. See [the SELinux review](SELINUX-API-MIGRATION-REVIEW.md). The Updater's recovery switch and rooted debugging both rely on permissive mode, and would need policy rules on an enforcing build.
+
+### Miracast isn't available
+
+The device can't receive Miracast. AOSP only includes the sending side, and the Lineage device tree has nothing for it, so a receiver would have to be written from scratch.
+
+### The Updater is only partly tested
+
+The zip list and signature check are in the build, but no update has been installed through it. If an install fails partway, the bootloader isn't touched, so you can reflash with fastboot. The Updater's layout comes from Lineage's phone design, and only the file selection was rebuilt for the remote.
 
 ## Small problems
 
@@ -36,8 +44,8 @@ An enforcing build still has to be tested, and earlier logs show `vendor_init` p
 
 ## Working as intended
 
-- **Rooted debugging is greyed out.** Release (`user`) builds don't allow it.
-- **"OEM unlocking" shows as disabled.** It doesn't report the real state. See [how to check](RISKS.md#checking-the-lock-state).
+- **"OEM unlocking" shows as disabled.** It doesn't report the real state, and its summary was reworded to "Allow the bootloader to be unlocked". See [how to check](RISKS.md#checking-the-lock-state).
+- **The Updater refuses a zip.** It only accepts zips signed with your own key, which keeps Google OTAs out.
 - **Choosing No at "Install anyway?"** ends with `error 21`, `status 2` and `Installation aborted`.
 
 ## Not tested yet

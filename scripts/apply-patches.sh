@@ -25,4 +25,7 @@ apply packages/modules/AdServices "$here/patches/packages_modules_AdServices/000
 apply packages/modules/OnDevicePersonalization "$here/patches/packages_modules_OnDevicePersonalization/0001-privacy-kill-switches.patch"
 apply device/google/atv "$here/patches/device_google_atv/0001-remove-emulator-setup-props.patch"
 apply packages/modules/Wifi "$here/patches/packages_modules_Wifi/0001-hidden-network-scan.patch"
+apply frameworks/base "$here/patches/frameworks_base/0003-advanced-restart-and-local-update-guard.patch"
+apply packages/apps/TvSettings "$here/patches/packages_apps_TvSettings/0001-buttons-battery-and-oem-text.patch"
+apply packages/apps/Updater "$here/patches/packages_apps_Updater/0001-local-only-tv-updater.patch"
 echo "done"

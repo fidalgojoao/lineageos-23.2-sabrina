@@ -42,6 +42,21 @@ Each problem here was diagnosed from device logs or source. These notes may help
 - **Likely cause:** stock's `bluetooth.core.le.privacy.apply_identity_addr_after_paired=true` doesn't exist in Android 16's Bluetooth source. The Chromecast keeps a rotating private address, so the remote's normal wake-up signal appears to get ignored. Pairing mode broadcasts to everyone, so that still worked.
 - **Fix:** `bluetooth.core.gap.le.privacy.enabled=false`, which uses the public address. The cost is that its Bluetooth address no longer rotates. The Bluetooth device class was also restored to stock's `44,4,32`.
 
+### Remote battery wasn't shown
+
+- **Cause:** the product partition sets `bluetooth.profile.bas.client.enabled=false`, so Android never read the remote's battery service (`0000180f`). The Remotes & Accessories list also had no battery text.
+- **Fix:** turn the client on, and have `ConnectedDevicesSliceProvider` show `BluetoothDevice.getBatteryLevel()`.
+
+### Power menu had no recovery or bootloader option
+
+- **Cause:** `GlobalActionsDialogLite` had the actions, but TV Settings had no switch for `ADVANCED_REBOOT`.
+- **Fix:** add the switch to System → Buttons, and on TV list the actions beside Power off and Restart instead of in a submenu.
+
+### Updater and file picker on a TV
+
+- **Cause:** the Updater was removed to block OTAs, and its picker, `DocumentsUI`, is a phone design that couldn't be used with the remote.
+- **Fix:** restore the Updater without its server, background checks or internet permission, and let the OTA guard pass only a signed zip from its own folder. Its import now lists zips in a plain dialog, reading them through `com.android.externalstorage.documents`.
+
 ### TV volume and Input didn't work
 
 - **Cause:** stock's `TVAxel` (Android TV Infrared Service) was missing, so the remote couldn't be set up to send IR. CEC volume went to the soundbar, which acknowledged it and ignored it.

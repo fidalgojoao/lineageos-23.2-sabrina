@@ -26,6 +26,13 @@ Follow that project's instructions to unlock your device. See [CREDITS.md](CREDI
 - Lineage-style recovery menu with the device's button
 - Signing with your own release keys
 - OTA update services disabled
+- Remote battery level in Remotes & Accessories
+- Rooted debugging, which you can turn on in Developer options
+
+**In the build, not fully tested:**
+
+- Advanced restart, which adds Recovery and Bootloader to the power menu
+- A local-only Updater, including its remote-friendly list of zips and its recovery switch. **No update has been installed through it yet**
 
 **Works, with problems:**
 
@@ -40,6 +47,7 @@ Follow that project's instructions to unlock your device. See [CREDITS.md](CREDI
 **Not expected to work:**
 
 - Play Integrity and Google certification
+- Miracast. Neither AOSP nor the Lineage device tree has a receiver
 
 Full list: [docs/KNOWN-ISSUES.md](docs/KNOWN-ISSUES.md).
 

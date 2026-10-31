@@ -1,0 +1,299 @@
+diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
+index 1cfa4d1..76655b2 100644
+--- a/app/src/main/AndroidManifest.xml
++++ b/app/src/main/AndroidManifest.xml
+@@ -11,15 +11,19 @@
+     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+-    <uses-permission android:name="android.permission.INTERNET" />
+     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+     <uses-permission android:name="android.permission.REBOOT" />
+     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
++    <uses-permission android:name="android.permission.MANAGE_DOCUMENTS" />
+     <uses-permission android:name="android.permission.RECOVERY" />
+     <uses-permission android:name="android.permission.START_ACTIVITIES_FROM_BACKGROUND" />
+     <uses-permission android:name="android.permission.WAKE_LOCK" />
+     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
+ 
++    <queries>
++        <provider android:authorities="com.android.externalstorage.documents" />
++    </queries>
++
+     <application
+         android:name=".UpdaterApplication"
+         android:allowBackup="false"
+diff --git a/app/src/main/java/org/lineageos/updater/UpdateImporter.java b/app/src/main/java/org/lineageos/updater/UpdateImporter.java
+index f63194c..37c83b3 100644
+--- a/app/src/main/java/org/lineageos/updater/UpdateImporter.java
++++ b/app/src/main/java/org/lineageos/updater/UpdateImporter.java
+@@ -7,9 +7,13 @@ package org.lineageos.updater;
+ 
+ import android.annotation.SuppressLint;
+ import android.app.Activity;
++import android.app.AlertDialog;
+ import android.content.Intent;
++import android.database.Cursor;
+ import android.net.Uri;
+ import android.os.ParcelFileDescriptor;
++import android.provider.DocumentsContract;
++import android.text.format.Formatter;
+ import android.util.Log;
+ 
+ import org.lineageos.updater.controller.UpdaterController;
+@@ -22,12 +26,19 @@ import java.io.File;
+ import java.io.FileInputStream;
+ import java.io.FileOutputStream;
+ import java.io.IOException;
++import java.util.ArrayList;
++import java.util.HashSet;
++import java.util.List;
++import java.util.Locale;
++import java.util.Set;
+ 
+ public class UpdateImporter {
+     private static final int REQUEST_PICK = 9061;
+     private static final String TAG = "UpdateImporter";
+     private static final String MIME_ZIP = "application/zip";
+     private static final String FILE_NAME = "localUpdate.zip";
++    private static final String STORAGE_AUTHORITY = "com.android.externalstorage.documents";
++    private static final int MAX_SCAN_DEPTH = 4;
+ 
+     private final Activity activity;
+     private final Callbacks callbacks;
+@@ -47,10 +58,97 @@ public class UpdateImporter {
+     }
+ 
+     public void openImportPicker() {
+-        final Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT)
+-                .addCategory(Intent.CATEGORY_OPENABLE)
+-                .setType(MIME_ZIP);
+-        activity.startActivityForResult(intent, REQUEST_PICK);
++        new Thread(() -> {
++            final List<LocalZip> zips = findLocalZips();
++            activity.runOnUiThread(() -> showLocalZips(zips));
++        }).start();
++    }
++
++    private void showLocalZips(List<LocalZip> zips) {
++        if (activity.isFinishing() || activity.isDestroyed()) {
++            return;
++        }
++        final AlertDialog.Builder dialog = new AlertDialog.Builder(activity)
++                .setTitle(R.string.local_update_import)
++                .setNegativeButton(android.R.string.cancel, null);
++        if (zips.isEmpty()) {
++            dialog.setMessage(R.string.local_update_no_files);
++        } else {
++            final CharSequence[] labels = new CharSequence[zips.size()];
++            for (int i = 0; i < labels.length; i++) {
++                labels[i] = zips.get(i).label;
++            }
++            dialog.setItems(labels, (d, which) -> onPicked(zips.get(which).uri));
++        }
++        dialog.show();
++    }
++
++    /** Lists zips on internal storage and USB drives, newest first. */
++    private List<LocalZip> findLocalZips() {
++        final List<LocalZip> zips = new ArrayList<>();
++        final Set<String> seen = new HashSet<>();
++        final String[] columns = {
++                DocumentsContract.Root.COLUMN_DOCUMENT_ID,
++                DocumentsContract.Root.COLUMN_TITLE,
++        };
++        try (Cursor roots = activity.getContentResolver().query(
++                DocumentsContract.buildRootsUri(STORAGE_AUTHORITY), columns, null, null, null)) {
++            while (roots != null && roots.moveToNext()) {
++                findLocalZips(roots.getString(0), roots.getString(1), 0, seen, zips);
++            }
++        } catch (RuntimeException e) {
++            Log.e(TAG, "Failed to list storage", e);
++        }
++        zips.sort((a, b) -> Long.compare(b.modified, a.modified));
++        return zips;
++    }
++
++    private void findLocalZips(String documentId, String location, int depth, Set<String> seen,
++            List<LocalZip> zips) {
++        if (depth > MAX_SCAN_DEPTH || !seen.add(documentId)) {
++            return;
++        }
++        final String[] columns = {
++                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
++                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
++                DocumentsContract.Document.COLUMN_MIME_TYPE,
++                DocumentsContract.Document.COLUMN_LAST_MODIFIED,
++                DocumentsContract.Document.COLUMN_SIZE,
++        };
++        try (Cursor children = activity.getContentResolver().query(
++                DocumentsContract.buildChildDocumentsUri(STORAGE_AUTHORITY, documentId),
++                columns, null, null, null)) {
++            while (children != null && children.moveToNext()) {
++                final String id = children.getString(0);
++                final String name = children.getString(1);
++                if (DocumentsContract.Document.MIME_TYPE_DIR.equals(children.getString(2))) {
++                    if (!"Android".equals(name)) {
++                        findLocalZips(id, location + "/" + name, depth + 1, seen, zips);
++                    }
++                } else if (name != null && name.toLowerCase(Locale.ROOT).endsWith(".zip")
++                        && seen.add(id)) {
++                    zips.add(new LocalZip(
++                            DocumentsContract.buildDocumentUri(STORAGE_AUTHORITY, id),
++                            name + "\n" + location + " - "
++                                    + Formatter.formatShortFileSize(activity, children.getLong(4)),
++                            children.getLong(3)));
++                }
++            }
++        } catch (RuntimeException e) {
++            Log.w(TAG, "Skipping " + location, e);
++        }
++    }
++
++    private static final class LocalZip {
++        final Uri uri;
++        final String label;
++        final long modified;
++
++        LocalZip(Uri uri, String label, long modified) {
++            this.uri = uri;
++            this.label = label;
++            this.modified = modified;
++        }
+     }
+ 
+     public boolean onResult(int requestCode, int resultCode, Intent data) {
+diff --git a/app/src/main/java/org/lineageos/updater/UpdaterReceiver.java b/app/src/main/java/org/lineageos/updater/UpdaterReceiver.java
+index d143b02..f8d9e23 100644
+--- a/app/src/main/java/org/lineageos/updater/UpdaterReceiver.java
++++ b/app/src/main/java/org/lineageos/updater/UpdaterReceiver.java
+@@ -41,7 +41,6 @@ public class UpdaterReceiver extends BroadcastReceiver {
+             pm.reboot(null);
+         } else if (Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())) {
+             Utils.removeUncryptFiles(Utils.getDownloadPath(context));
+-            UpdatesCheckWorker.schedulePeriodicCheck(context);
+ 
+             SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(context);
+             String downloadId = pref.getString(Constants.PREF_NEEDS_REBOOT_ID, null);
+diff --git a/app/src/main/java/org/lineageos/updater/UpdatesScaffoldActivity.kt b/app/src/main/java/org/lineageos/updater/UpdatesScaffoldActivity.kt
+index bb6bc87..e495352 100644
+--- a/app/src/main/java/org/lineageos/updater/UpdatesScaffoldActivity.kt
++++ b/app/src/main/java/org/lineageos/updater/UpdatesScaffoldActivity.kt
+@@ -11,6 +11,7 @@ import androidx.activity.ComponentActivity
+ import androidx.activity.compose.setContent
+ import androidx.activity.enableEdgeToEdge
+ import androidx.activity.viewModels
++import androidx.compose.foundation.focusGroup
+ import androidx.compose.foundation.layout.Column
+ import androidx.compose.foundation.layout.PaddingValues
+ import androidx.compose.foundation.layout.Row
+@@ -23,6 +24,7 @@ import androidx.compose.foundation.rememberScrollState
+ import androidx.compose.foundation.verticalScroll
+ import androidx.compose.runtime.Composable
+ import androidx.compose.runtime.CompositionLocalProvider
++import androidx.compose.runtime.LaunchedEffect
+ import androidx.compose.runtime.collectAsState
+ import androidx.compose.runtime.getValue
+ import androidx.compose.runtime.mutableIntStateOf
+@@ -30,6 +32,8 @@ import androidx.compose.runtime.mutableStateOf
+ import androidx.compose.runtime.remember
+ import androidx.compose.runtime.setValue
+ import androidx.compose.ui.Modifier
++import androidx.compose.ui.focus.FocusRequester
++import androidx.compose.ui.focus.focusRequester
+ import androidx.compose.ui.platform.LocalDensity
+ import androidx.compose.ui.platform.LocalLayoutDirection
+ import androidx.compose.ui.platform.LocalWindowInfo
+@@ -40,6 +44,8 @@ import com.android.settingslib.spa.framework.compose.NavControllerWrapper
+ import com.android.settingslib.spa.framework.theme.SettingsTheme
+ import com.android.settingslib.spa.widget.preference.Preference
+ import com.android.settingslib.spa.widget.preference.PreferenceModel
++import com.android.settingslib.spa.widget.preference.SwitchPreference
++import com.android.settingslib.spa.widget.preference.SwitchPreferenceModel
+ import com.android.settingslib.spa.widget.scaffold.SettingsScaffold
+ import com.android.settingslib.spa.widget.ui.Category
+ import org.lineageos.updater.controller.UpdaterController
+@@ -310,14 +316,9 @@ private fun UpdatesActionPane(
+     val updatesCheckUiState = rememberUpdatesCheckUiState(model.state)
+ 
+     Column(modifier = modifier) {
+-        UpdatesCheck(
+-            model = model,
+-            uiState = updatesCheckUiState,
+-            onCheckClick = onRefreshClick,
+-        )
+         UpdateList(
+             items = updateItems,
+-            isUpdatesCheckStatusVisible = updatesCheckUiState.isStatusVisible,
++            isUpdatesCheckStatusVisible = false,
+             onAction = { action, downloadId ->
+                 val controller = updaterController ?: return@UpdateList
+                 val update = controller.getUpdate(downloadId) ?: return@UpdateList
+@@ -347,18 +348,29 @@ private fun UpdatesFooter(
+     onPreferencesClick: () -> Unit,
+ ) {
+     val localUpdateSummary = stringResource(R.string.local_update_import_summary)
+-    val preferencesSummary = stringResource(R.string.preferences_summary)
++    val updateRecoverySummary = stringResource(R.string.menu_update_recovery_summary)
++    val context = androidx.compose.ui.platform.LocalContext.current
++    val repository =
++        remember { (context.applicationContext as UpdaterApplication).userPreferencesRepository }
++    var recoveryUpdateEnabled by remember { mutableStateOf(repository.getRecoveryUpdateEnabled()) }
+ 
+-    Category {
++    val focusRequester = remember { FocusRequester() }
++    LaunchedEffect(Unit) { focusRequester.requestFocus() }
++
++    Category(modifier = Modifier.focusRequester(focusRequester).focusGroup()) {
+         Preference(object : PreferenceModel {
+             override val title = stringResource(R.string.local_update_import)
+             override val summary = { localUpdateSummary }
+             override val onClick = onLocalUpdateClick
+         })
+-        Preference(object : PreferenceModel {
+-            override val title = stringResource(R.string.menu_preferences)
+-            override val summary = { preferencesSummary }
+-            override val onClick = onPreferencesClick
++        SwitchPreference(object : SwitchPreferenceModel {
++            override val title = stringResource(R.string.menu_update_recovery)
++            override val summary = { updateRecoverySummary }
++            override val checked = { recoveryUpdateEnabled }
++            override val onCheckedChange: (Boolean) -> Unit = { value ->
++                recoveryUpdateEnabled = value
++                repository.setRecoveryUpdateEnabled(value)
++            }
+         })
+     }
+ }
+diff --git a/app/src/main/java/org/lineageos/updater/UpdatesViewModel.kt b/app/src/main/java/org/lineageos/updater/UpdatesViewModel.kt
+index 0ef2321..3eb0082 100644
+--- a/app/src/main/java/org/lineageos/updater/UpdatesViewModel.kt
++++ b/app/src/main/java/org/lineageos/updater/UpdatesViewModel.kt
+@@ -69,15 +69,6 @@ class UpdatesViewModel(
+             }
+         }
+ 
+-        viewModelScope.launch {
+-            networkMonitor.networkState
+-                .distinctUntilChangedBy { it.isOnline }
+-                .onEach { networkState ->
+-                    _uiState.update { it.copy(isOnline = networkState.isOnline) }
+-                }
+-                .filter { it.isOnline }
+-                .collect { fetchUpdates() }
+-        }
+     }
+ 
+     fun fetchUpdates() {
+diff --git a/app/src/main/res/values/strings.xml b/app/src/main/res/values/strings.xml
+index df56e15..8b00b59 100644
+--- a/app/src/main/res/values/strings.xml
++++ b/app/src/main/res/values/strings.xml
+@@ -186,6 +186,7 @@
+ 
+     <string name="local_update_import">Install local update</string>
+     <string name="local_update_import_summary">Select update file to install</string>
++    <string name="local_update_no_files">No zip files found. Copy one to the Download folder or to a USB drive, then try again.</string>
+     <string name="local_update_import_progress">Importing local update\u2026</string>
+     <string name="local_update_import_success_title">Update imported</string>
+     <string name="local_update_import_success_message">Build date: <xliff:g id="build_date" example="Apr 27">%1$s</xliff:g>\n\nTap the imported update to view available actions.</string>

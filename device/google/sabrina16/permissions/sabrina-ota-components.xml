@@ -18,10 +18,6 @@
     <component class="com.android.systemupdateservice.SystemUpdateService" enabled="false" />
   </component-override>
   <component-override package="org.lineageos.updater">
-    <component class="org.lineageos.updater.preferences.PreferencesActivity" enabled="false" />
-    <component class="org.lineageos.updater.UpdatesActivity" enabled="false" />
-    <component class="org.lineageos.updater.controller.UpdaterService" enabled="false" />
     <component class="org.lineageos.updater.ExportUpdateService" enabled="false" />
-    <component class="org.lineageos.updater.UpdaterReceiver" enabled="false" />
   </component-override>
 </config>

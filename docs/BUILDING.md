@@ -105,6 +105,18 @@ To avoid updating Google's apps after every wipe, you can build your own device'
 - **Space:** grow the system image. The 11 apps here took about 417 MB, and `super` had about 280 MB spare.
 - **Publishing:** Play's split APKs match one device's language and screen density, so build your own and **never publish them**.
 
+## Updating an existing release set
+
+The last builds were made by changing an existing signed image set, rather than rerunning the whole pipeline:
+
+1. Apply the patches, then build and sign target files (`build_target_files.py`, `sign_target_files_release.py`).
+2. Run `update_release_set.py <existing set> <recovery.img>`. It copies in the changed apps, adds the recovery updater, sets `ro.debuggable=1` and turns on the battery client, then re-signs and builds `super`.
+3. Run `make_local_update.py <new set> <output.zip>` for a zip the Updater can install.
+
+The `ro.debuggable` change only happens in that script, so a source-only build won't have rooted debugging.
+
+**The VM needs swap.** With 15 GB of RAM and 4 GB of swap, the VM hung at the start of the build. A 32 GB swap file fixed that. It also needs a running process to keep it alive, or WSL may shut it down partway through a build.
+
 ## Before sharing a build
 
 Remove the diagnostic code and test with SELinux enforcing. Don't redistribute images that contain Google's apps or vendor files.

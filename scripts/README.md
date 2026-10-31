@@ -27,4 +27,6 @@ Before running one:
 | `prepare_watchdog_images.py` | The post-build edits that produced the tested image |
 | `build_target_files.py`, `sign_target_files_release.py`, `apply_release_signing.py` | Release signing |
 | `build_recovery_*.py`, `prepare_recovery_menu.py`, `apply_recovery_install_anyway.py`, `flash_recovery_image.py` | Lineage-style recovery |
+| `apply_tv_features.py`, `apply_updater_tv_picker.py`, `apply_accessory_battery.py` | Advanced restart, the local Updater and remote battery |
+| `update_release_set.py`, `make_local_update.py` | Update a signed image set, and build a zip for the Updater |
 | `watchdog_trial.py`, `capture_failed_diagnostic_boot.py`, `make_debug_boot.py` | Flashing, restoring and capturing logs |

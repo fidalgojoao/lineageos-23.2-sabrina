@@ -24,13 +24,12 @@ $(call inherit-product, vendor/gapps_tv/arm/arm-vendor.mk)
 
 PRODUCT_SOONG_NAMESPACES += device/google/sabrina16
 SYSTEM_EXT_PRIVATE_SEPOLICY_DIRS += device/google/sabrina16/sepolicy/system_ext/private
-PRODUCT_PACKAGES += SabrinaGoogleTVLauncher SabrinaGoogleTVDream SabrinaGboardTV SabrinaWifiOverlay SabrinaLegacyFrameworkMatrix4
+PRODUCT_PACKAGES += SabrinaGoogleTVLauncher SabrinaLegacyFrameworkMatrix4
 PRODUCT_PACKAGES += SabrinaFrameworkExtensionMatrix
 
 PRODUCT_COPY_FILES += \
     device/google/sabrina16/permissions/privapp-permissions-sabrina-launcher.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/permissions/privapp-permissions-sabrina-launcher.xml \
     device/google/sabrina16/permissions/sabrina-launcher-defaults.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/default-permissions/sabrina-launcher-defaults.xml \
-    device/google/sabrina16/permissions/privapp-permissions-sabrina-dreamx.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/permissions/privapp-permissions-sabrina-dreamx.xml \
     device/google/sabrina16/permissions/sabrina-google-tv.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/sysconfig/sabrina-google-tv.xml \
     device/google/sabrina16/permissions/sabrina-ota-components.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/sysconfig/sabrina-ota-components.xml \
     device/google/sabrina16/permissions/sabrina-privacy-components.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/sysconfig/sabrina-privacy-components.xml
@@ -60,9 +59,8 @@ PRODUCT_COPY_FILES += \
 # Android 16's EGL loader stops at ro.board.platform=sabrina and skips its wildcard search.
 PRODUCT_PRODUCT_PROPERTIES += ro.hardware.egl=mali
 
-# This Bluetooth stack ignores Google's apply_identity_addr_after_paired, so a paired
-# remote's wake-up signal never matches a rotating address. Use the public address.
-PRODUCT_PRODUCT_PROPERTIES += \
-    bluetooth.core.gap.le.privacy.enabled=false \
-    bluetooth.device.class_of_device=44,4,32 \
-    ro.com.google.clientidbase=android-google-tv
+# File picker for the Updater's local update.
+PRODUCT_PACKAGES += DocumentsUI
+
+# Battery level of remotes and accessories.
+PRODUCT_PRODUCT_PROPERTIES += bluetooth.profile.bas.client.enabled=true
