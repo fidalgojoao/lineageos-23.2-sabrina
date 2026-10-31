@@ -24,4 +24,5 @@ apply vendor/lineage "$here/patches/vendor_lineage/0001-build-manifest-sandbox.p
 apply packages/modules/AdServices "$here/patches/packages_modules_AdServices/0001-privacy-kill-switches.patch"
 apply packages/modules/OnDevicePersonalization "$here/patches/packages_modules_OnDevicePersonalization/0001-privacy-kill-switches.patch"
 apply device/google/atv "$here/patches/device_google_atv/0001-remove-emulator-setup-props.patch"
+apply packages/modules/Wifi "$here/patches/packages_modules_Wifi/0001-hidden-network-scan.patch"
 echo "done"

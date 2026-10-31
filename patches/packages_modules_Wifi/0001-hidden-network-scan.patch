@@ -1,0 +1,32 @@
+diff --git a/service/java/com/android/server/wifi/WifiConnectivityManager.java b/service/java/com/android/server/wifi/WifiConnectivityManager.java
+index 640a51c..7fdba47 100644
+--- a/service/java/com/android/server/wifi/WifiConnectivityManager.java
++++ b/service/java/com/android/server/wifi/WifiConnectivityManager.java
+@@ -2359,6 +2359,14 @@ public class WifiConnectivityManager {
+                     mWifiMetrics.incrementInitialPartialScanCount();
+                 }
+             } else {
++                // A full scan can miss a hidden network on a DFS channel: there's little time on
++                // each channel to hear a beacon and then probe for the name. Android knows the
++                // channel, so try it on every other scan. Falls back to full with no history.
++                if (mWifiState == WIFI_STATE_DISCONNECTED
++                        && mCurrentSingleScanScheduleIndex % 2 == 1
++                        && !mConfigManager.retrieveHiddenNetworkList(true).isEmpty()) {
++                    isFullBandScan = false;
++                }
+                 startSingleScan(isFullBandScan, WIFI_WORK_SOURCE,
+                         getScheduledSingleScanType(mCurrentSingleScanScheduleIndex));
+                 mWifiMetrics.reportWifiPeriodicScan(mWifiState == WIFI_STATE_CONNECTED,
+diff --git a/service/java/com/android/server/wifi/WifiScoreCard.java b/service/java/com/android/server/wifi/WifiScoreCard.java
+index e94e337..a667cfc 100644
+--- a/service/java/com/android/server/wifi/WifiScoreCard.java
++++ b/service/java/com/android/server/wifi/WifiScoreCard.java
+@@ -1258,6 +1258,8 @@ public class WifiScoreCard {
+          * @return a list of frequencies
+          */
+         List<Integer> getFrequencies(Long ageInMills) {
++            // Without this, stored channels stay unread until a connection event needs them.
++            finishPendingRead();
+             List<Integer> results = new ArrayList<>();
+             Long nowInMills = mClock.getElapsedSinceBootMillis();
+             for (Integer freq : mFrequencyList.getEntries()) {

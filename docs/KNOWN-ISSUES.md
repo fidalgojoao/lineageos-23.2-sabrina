@@ -4,9 +4,9 @@
 
 ### Wi-Fi is slow after a reboot
 
-**What you'll see:** Wi-Fi reconnects by itself, but it can take up to about 30 seconds after Wi-Fi starts. It's been measured on a hidden network on a DFS channel (5560 MHz), and other networks may behave differently.
+**What you'll see:** after a reboot, Wi-Fi reconnects by itself, usually about 30 seconds after it starts. It's been measured on a hidden network on a DFS channel (5560 MHz), and other networks may behave differently. Waking from a short sleep isn't affected: Wi-Fi stayed connected.
 
-**Why:** a full scan can miss a hidden network, because its name isn't broadcast. A scan of the channel it was last seen on finds it straight away. See [ROOT-CAUSES.md](ROOT-CAUSES.md#wi-fi-slow-to-reconnect-on-a-hidden-network).
+**Why:** scans early in a boot can miss a hidden network, and the wait between scans grows each time. Why they miss it isn't fully understood. See [ROOT-CAUSES.md](ROOT-CAUSES.md#wi-fi-slow-to-reconnect-on-a-hidden-network).
 
 **What may help:** broadcasting the network name, or using a non-DFS channel.
 

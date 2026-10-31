@@ -63,21 +63,23 @@ Each problem here was diagnosed from device logs or source. These notes may help
 ### Wi-Fi slow to reconnect on a hidden network
 
 - **Symptom:** after a reboot, Wi-Fi could take over 2 minutes to connect, with no toggling involved. Turning Wi-Fi off and on connected in about 2 seconds.
-- **Cause:** the test network is hidden and on DFS channel 5560. Full scans can see the router with a blank name, logged as `invalid SSID`, and skip it. A scan of only its known channel finds it. After a reboot, Android was using full scans, and it had no channel history until a connection event loaded it.
-- **Fix, in `packages/modules/Wifi`:**
+- **What's known:** the test network is hidden and on DFS channel 5560. Scans can see the router with a blank name, logged as `invalid SSID`, or not see it at all, and Android then waits for the next scan. Waits between scans keep growing: 20, 40, 80 and 160 seconds.
+- **Cause:** only partly understood. Scans early in a boot often fail, including scans of the known channel, and the reason hasn't been found.
+- **Partial fix, in [`packages_modules_Wifi/0001`](../patches/packages_modules_Wifi/0001-hidden-network-scan.patch):**
   - `WifiScoreCard` now loads the stored channels whenever they're asked for.
-  - While disconnected with a hidden network saved, `WifiConnectivityManager` now alternates full scans with known-channel scans.
-- **Result:**
+  - While disconnected with a hidden network saved, `WifiConnectivityManager` alternates full scans with known-channel scans.
+- **Result, from Wi-Fi starting to connecting, on one router with no toggling:**
 
-| Build | Wi-Fi start to link |
+| Build | Seconds |
 |---|---|
-| Before stock's Wi-Fi values | 142 s and 11 s |
-| With stock's Wi-Fi values | 35, 35 and 62 s |
-| With both fixes above | 29, 29, 29, 28, 14 and 29 s |
+| Before stock's Wi-Fi values | 142, 11 |
+| With stock's Wi-Fi values | 35, 35, 62 |
+| With the partial fix | 29, 29, 29, 28, 14, 29, 30 |
+| Known-channel scans first (rejected) | 149, 149, 8, 55, 149 |
 
-The known-channel scan connects when it runs. The remaining wait is mostly the 20 seconds before its turn. This was measured on one router, with no toggling.
+**Waking from sleep is different.** Wi-Fi stayed connected through a 90-second sleep, and was connected 0.3 seconds after waking. The device hadn't fully suspended in that time, so a longer sleep hasn't been measured.
 
-**Not explained:** stock's compiled code doesn't have these fixes either, so they don't show why stock felt seamless.
+**Not explained:** stock's compiled code doesn't have these fixes, and stock's reboot time hasn't been timed the same way. Stock may have only felt seamless because it was waking from sleep.
 
 ## Video and audio
 
