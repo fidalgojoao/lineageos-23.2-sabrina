@@ -110,7 +110,7 @@ To avoid updating Google's apps after every wipe, you can build your own device'
 The last builds were made by changing an existing signed image set, rather than rerunning the whole pipeline:
 
 1. Apply the patches, then build and sign target files (`build_target_files.py`, `sign_target_files_release.py`).
-2. Run `update_release_set.py <existing set> <recovery.img>`. It copies in the changed apps, adds the recovery updater, sets `ro.debuggable=1` and turns on the battery client, then re-signs and builds `super`.
+2. Run `update_release_set.py <existing set> <recovery.img>`. It copies in the changed apps, rebuilds the framework overlay, adds the recovery updater, sets `ro.debuggable=1`, turns on the battery client and stamps the build date and LineageOS version date, then re-signs and builds `super`.
 3. Run `make_local_update.py <new set> <output.zip>` for a zip the Updater can install.
 
 The `ro.debuggable` change only happens in that script, so a source-only build won't have rooted debugging.

@@ -62,6 +62,17 @@ Each problem here was diagnosed from device logs or source. These notes may help
 - **Cause:** stock's `TVAxel` (Android TV Infrared Service) was missing, so the remote couldn't be set up to send IR. CEC volume went to the soundbar, which acknowledged it and ignored it.
 - **Fix:** include `TVAxel`, its overlay and stock's permission entries, then run the setup. Stock links the menu from `ChromecastServiceAml`, so `SabrinaTvSettingsOverlay` fills TV Settings' own `bluetooth_ir_entry_slice_uri` slot instead.
 
+### Remote buttons didn't turn the TV on
+
+- **Symptom:** with the TV off, only the power button woke the device. Stock also woke it with Home, Assistant and YouTube, and carried out the button's action.
+- **Cause:** LineageOS gates wake keys on `config_deviceHardwareWakeKeys`, which allowed only volume keys here, and on its Assistant wake setting, which is off by default. The remote's key layout (`Vendor_18d1_Product_9450.kl`) doesn't mark Assistant as a wake key at all. Stock's `ChromecastAndroidOverlay` also sends the YouTube button to the launcher while asleep, and this build didn't have it.
+- **Fix:** on TV, `PhoneWindowManager` lets Home and Assistant wake the device and treats Assistant and the app buttons as wake keys. The framework overlay's `global_keys.xml` sends YouTube to the launcher while asleep. It keeps `TvFrameworkOverlay`'s keys, because an overlay's list replaces the whole file. The rest of stock's overlay isn't used, because it would also stop a long power press opening the power menu.
+
+### The Input button couldn't switch the TV to this device
+
+- **Cause:** stock sends `KEYCODE_TV_INPUT` to `ChromecastServiceAml`, which isn't in this build.
+- **Fix:** the key goes to TV Settings' `GlobalKeyReceiver`. With the new switch in Remotes & Accessories on, it calls `HdmiPlaybackClient.oneTouchPlay`, the same HDMI-CEC request that switches the TV over when the power button wakes the device.
+
 ### Holding Home opened the assistant
 
 - **Cause:** LineageOS's key handler uses its own action list, where `3` means search. Separately, `TvFrameworkOverlay` sets a `large` value that wins on TVs, and `ATVOverlay` points the panel at the wrong package.

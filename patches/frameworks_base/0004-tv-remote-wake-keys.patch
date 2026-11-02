@@ -1,0 +1,57 @@
+diff --git a/services/core/java/com/android/server/policy/PhoneWindowManager.java b/services/core/java/com/android/server/policy/PhoneWindowManager.java
+index 947fed9..8855fe7 100644
+--- a/services/core/java/com/android/server/policy/PhoneWindowManager.java
++++ b/services/core/java/com/android/server/policy/PhoneWindowManager.java
+@@ -3378,6 +3378,10 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+         final boolean kidsModeEnabled;
+         int mDeviceHardwareWakeKeys = mContext.getResources().getInteger(
+                 org.lineageos.platform.internal.R.integer.config_deviceHardwareWakeKeys);
++        if (mHasFeatureLeanback) {
++            // A TV remote's Home and Assistant buttons wake the device, as on stock Android TV.
++            mDeviceHardwareWakeKeys |= KEY_MASK_HOME | KEY_MASK_ASSIST;
++        }
+         synchronized (mLock) {
+             mEndcallBehavior = Settings.System.getIntForUser(resolver,
+                     Settings.System.END_BUTTON_BEHAVIOR,
+@@ -3435,7 +3439,8 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+                     LineageSettings.System.MENU_WAKE_SCREEN, 0, UserHandle.USER_CURRENT) == 1)
+                     && ((mDeviceHardwareWakeKeys & KEY_MASK_MENU) != 0);
+             mWakeOnAssistKeyPress = (LineageSettings.System.getIntForUser(resolver,
+-                    LineageSettings.System.ASSIST_WAKE_SCREEN, 0, UserHandle.USER_CURRENT) == 1)
++                    LineageSettings.System.ASSIST_WAKE_SCREEN, mHasFeatureLeanback ? 1 : 0,
++                    UserHandle.USER_CURRENT) == 1)
+                     && ((mDeviceHardwareWakeKeys & KEY_MASK_ASSIST) != 0);
+             mWakeOnAppSwitchKeyPress = (LineageSettings.System.getIntForUser(resolver,
+                     LineageSettings.System.APP_SWITCH_WAKE_SCREEN, 0, UserHandle.USER_CURRENT) == 1)
+@@ -4999,7 +5004,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+         final int keyCode = event.getKeyCode();
+         final boolean down = event.getAction() == KeyEvent.ACTION_DOWN;
+         boolean isWakeKey = (policyFlags & WindowManagerPolicy.FLAG_WAKE) != 0
+-                || event.isWakeKey();
++                || event.isWakeKey() || isTvRemoteAppKey(keyCode);
+         boolean isKeyGestureTriggered = (policyFlags & FLAG_KEY_GESTURE_TRIGGERED) != 0;
+ 
+         // There are key events that perform the operation as the current user,
+@@ -5764,6 +5769,22 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+      * Check if the given keyCode represents a key that is considered a wake key
+      * and is currently enabled by the user in Settings or for another reason.
+      */
++    /** Stock remotes' Assistant and app buttons, which wake a TV whichever key layout the remote uses. */
++    private boolean isTvRemoteAppKey(int keyCode) {
++        if (!mHasFeatureLeanback) {
++            return false;
++        }
++        switch (keyCode) {
++            case KeyEvent.KEYCODE_ASSIST:
++            case KeyEvent.KEYCODE_BUTTON_3:
++            case KeyEvent.KEYCODE_BUTTON_4:
++            case KeyEvent.KEYCODE_FEATURED_APP_1:
++            case KeyEvent.KEYCODE_MACRO_1:
++                return true;
++        }
++        return false;
++    }
++
+     private boolean isWakeKeyEnabled(int keyCode) {
+         switch (keyCode) {
+             case KeyEvent.KEYCODE_VOLUME_UP:

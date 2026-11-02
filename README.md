@@ -27,9 +27,15 @@ Follow that project's instructions to unlock your device. See [CREDITS.md](CREDI
 - Signing with your own release keys
 - OTA update services disabled
 - Remote battery level in Remotes & Accessories
-- Rooted debugging, which you can turn on in Developer options
+- Rooted debugging, which you can turn on in Developer options. With it on, YouTube offered at most 1440p in testing
+- The build date in Settings → About, stamped on every build
 
-**In the build, not fully tested:**
+**In the build, waiting for testing:**
+
+- Home, Assistant and YouTube on the remote wake the device and the TV, as on stock
+- An Input button switch in Remotes & Accessories that switches the TV to this device over HDMI-CEC
+
+**Also not fully tested:**
 
 - Advanced restart, which adds Recovery and Bootloader to the power menu
 - A local-only Updater, including its remote-friendly list of zips and its recovery switch. **No update has been installed through it yet**

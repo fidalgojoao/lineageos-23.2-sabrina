@@ -4,7 +4,7 @@ T=Path('/opt/sabrina/android16')
 def edit(rel,pairs):
     p=T/rel;t=p.read_text();changed=False
     for old,new in pairs:
-        if new and new in t:continue
+        if (new and new in t) or (not new and old not in t):continue
         assert t.count(old)==1,(rel,old[:60],t.count(old));t=t.replace(old,new);changed=True
     if changed:p.write_text(t)
     print('patched' if changed else 'already patched',rel)

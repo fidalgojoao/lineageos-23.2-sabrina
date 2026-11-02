@@ -1,0 +1,277 @@
+diff --git a/Settings/AndroidManifest.xml b/Settings/AndroidManifest.xml
+index c1a9fd9..6ee7f21 100644
+--- a/Settings/AndroidManifest.xml
++++ b/Settings/AndroidManifest.xml
+@@ -67,6 +67,8 @@
+     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
+     <uses-permission android:name="android.permission.WRITE_SETTINGS"/>
+     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"/>
++    <uses-permission android:name="android.permission.HDMI_CEC"/>
++    <uses-permission android:name="lineageos.permission.WRITE_SECURE_SETTINGS"/>
+     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES"/>
+     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
+     <uses-permission android:name="com.google.android.assistant.READ_HOTWORD_STATE"/>
+diff --git a/Settings/res/values/lineage_strings.xml b/Settings/res/values/lineage_strings.xml
+index 37383e3..3693f54 100644
+--- a/Settings/res/values/lineage_strings.xml
++++ b/Settings/res/values/lineage_strings.xml
+@@ -42,6 +42,12 @@
+     <string name="power_button_long_press_for_power_menu_action">Access Power menu</string>
+     <!-- Power button long press action to open Assistant. [CHAR LIMIT=60] -->
+     <string name="power_button_long_press_for_assistant_action">Open Assistant</string>
++    <!-- Power menu entries for recovery and bootloader [CHAR LIMIT=60] -->
++    <string name="advanced_restart_title">Advanced restart</string>
++    <string name="advanced_restart_summary">Show options for restarting into recovery or bootloader</string>
++    <!-- Remotes & Accessories: the remote's Input button switches the TV to this device [CHAR LIMIT=60] -->
++    <string name="input_button_switch_title">Input button switches to this device</string>
++    <string name="input_button_switch_summary">Pressing Input on the remote switches the TV to this device over HDMI-CEC</string>
+     <!-- Volume up and down to mute [CHAR LIMIT=60] -->
+     <string name="press_volume_up_and_down_to_mute_title">Two button mute</string>
+     <string name="press_volume_up_and_down_to_mute_summary">Press the volume up and down buttons to toggle audio mute</string>
+diff --git a/Settings/res/values/strings.xml b/Settings/res/values/strings.xml
+index f77bab9..d6fb0db 100644
+--- a/Settings/res/values/strings.xml
++++ b/Settings/res/values/strings.xml
+@@ -1103,7 +1103,7 @@
+     <!-- setting enable OEM unlock Checkbox's summary to explain this Checkbox is disabled because there is no connectivity. [CHAR_LIMIT=60] -->
+     <string name="oem_unlock_enable_disabled_summary_connectivity">Connect to the internet first</string>
+     <!-- setting enable OEM unlock Checkbox's summary to explain this Checkbox is disabled because there is no connectivity or the device is locked by the carrier [CHAR_LIMIT=60] -->
+-    <string name="oem_unlock_enable_disabled_summary_connectivity_or_locked">Connect to the internet or contact your carrier</string>
++    <string name="oem_unlock_enable_disabled_summary_connectivity_or_locked">Allow the bootloader to be unlocked</string>
+     <!-- setting enable OEM unlock Checkbox's summary to explain this Checkbox is disabled because this setting is unavailable on sim-locked devices. [CHAR_LIMIT=60] -->
+     <string name="oem_unlock_enable_disabled_summary_sim_locked_device">Unavailable on carrier-locked devices</string>
+     <!-- Information displayed after user locks OEM lock [Char Limit=None]-->
+diff --git a/Settings/res/xml/buttons.xml b/Settings/res/xml/buttons.xml
+index 8eb5677..2c6ef36 100644
+--- a/Settings/res/xml/buttons.xml
++++ b/Settings/res/xml/buttons.xml
+@@ -30,8 +30,15 @@
+         android:defaultValue="0" />
+ 
+     <com.android.tv.settings.widget.SwitchWithSoundPreference
+-        android:key="press_volume_up_and_down_to_mute"
++        android:key="advanced_reboot"
+         android:order="2"
++        android:title="@string/advanced_restart_title"
++        android:summary="@string/advanced_restart_summary"
++        android:defaultValue="false" />
++
++    <com.android.tv.settings.widget.SwitchWithSoundPreference
++        android:key="press_volume_up_and_down_to_mute"
++        android:order="3"
+         android:title="@string/press_volume_up_and_down_to_mute_title"
+         android:summary="@string/press_volume_up_and_down_to_mute_summary"
+         android:defaultValue="0" />
+diff --git a/Settings/src/com/android/tv/settings/GlobalKeyReceiver.java b/Settings/src/com/android/tv/settings/GlobalKeyReceiver.java
+index 5a7a360..cca3855 100644
+--- a/Settings/src/com/android/tv/settings/GlobalKeyReceiver.java
++++ b/Settings/src/com/android/tv/settings/GlobalKeyReceiver.java
+@@ -22,9 +22,14 @@ import static com.android.tv.settings.accessories.AddAccessoryActivity.INTENT_EX
+ import android.content.BroadcastReceiver;
+ import android.content.Context;
+ import android.content.Intent;
++import android.hardware.hdmi.HdmiControlManager;
++import android.hardware.hdmi.HdmiPlaybackClient;
++import android.provider.Settings;
+ import android.util.Log;
+ import android.view.KeyEvent;
+ 
++import com.android.tv.settings.accessories.ConnectedDevicesSliceBroadcastReceiver;
++
+ /**
+  * Handles global keys.
+  */
+@@ -43,6 +48,11 @@ public class GlobalKeyReceiver extends BroadcastReceiver {
+                 case KeyEvent.KEYCODE_PAIRING:
+                     sendPairingIntent(context, event);
+                     return;
++                case KeyEvent.KEYCODE_TV_INPUT:
++                    if (event.getAction() == KeyEvent.ACTION_UP) {
++                        switchTvToThisDevice(context);
++                    }
++                    return;
+                 default:
+                     if (DEBUG) {
+                         Log.d(TAG, "Unhandled key " + event.getKeyCode());
+@@ -52,6 +62,21 @@ public class GlobalKeyReceiver extends BroadcastReceiver {
+         }
+     }
+ 
++    /** With the Input button switch on, asks the TV over HDMI-CEC to show this device. */
++    private static void switchTvToThisDevice(Context context) {
++        if (Settings.Secure.getInt(context.getContentResolver(),
++                ConnectedDevicesSliceBroadcastReceiver.INPUT_BUTTON_SWITCH_SETTING, 0) != 1) {
++            return;
++        }
++        final HdmiControlManager hdmi = context.getSystemService(HdmiControlManager.class);
++        final HdmiPlaybackClient playback = hdmi != null ? hdmi.getPlaybackClient() : null;
++        if (playback == null) {
++            Log.w(TAG, "No HDMI-CEC playback device");
++            return;
++        }
++        playback.oneTouchPlay(result -> Log.i(TAG, "Switch TV to this device: " + result));
++    }
++
+     private static void sendPairingIntent(Context context, KeyEvent event) {
+         Intent intent =
+                 new Intent(ACTION_CONNECT_INPUT).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK).setPackage(
+diff --git a/Settings/src/com/android/tv/settings/accessories/ConnectedDevicesSliceBroadcastReceiver.java b/Settings/src/com/android/tv/settings/accessories/ConnectedDevicesSliceBroadcastReceiver.java
+index dc1e23a..9be4d37 100644
+--- a/Settings/src/com/android/tv/settings/accessories/ConnectedDevicesSliceBroadcastReceiver.java
++++ b/Settings/src/com/android/tv/settings/accessories/ConnectedDevicesSliceBroadcastReceiver.java
+@@ -33,6 +33,7 @@ import android.bluetooth.BluetoothDevice;
+ import android.content.BroadcastReceiver;
+ import android.content.Context;
+ import android.content.Intent;
++import android.provider.Settings;
+ import android.net.Uri;
+ 
+ import com.android.tv.settings.R;
+@@ -55,6 +56,9 @@ public class ConnectedDevicesSliceBroadcastReceiver extends BroadcastReceiver {
+     // Bluetooth off is handled differently by ResponseActivity with confirmation dialog.
+     static final String BLUETOOTH_ON = "BLUETOOTH_ON";
+     static final String ACTIVE_AUDIO_OUTPUT = "ACTIVE_AUDIO_OUTPUT";
++    static final String INPUT_BUTTON_SWITCH = "INPUT_BUTTON_SWITCH";
++    /** Read by GlobalKeyReceiver: 1 makes the Input button switch the TV to this device. */
++    public static final String INPUT_BUTTON_SWITCH_SETTING = "sabrina_input_button_switch";
+ 
+     static final String BACKLIGHT_MODE = "BACKLIGHT_MODE";
+     static final String ACTION_BACKLIGHT = "com.google.android.tv.BACKLIGHT";
+@@ -83,6 +87,12 @@ public class ConnectedDevicesSliceBroadcastReceiver extends BroadcastReceiver {
+                         // refresh device
+                         notifyDeviceChanged(context, device);
+                     }
++                    case INPUT_BUTTON_SWITCH -> {
++                        Settings.Secure.putInt(context.getContentResolver(),
++                                INPUT_BUTTON_SWITCH_SETTING, isChecked ? 1 : 0);
++                        context.getContentResolver().notifyChange(
++                                ConnectedDevicesSliceUtils.GENERAL_SLICE_URI, null);
++                    }
+                     case FIND_MY_REMOTE_PHYSICAL_BUTTON_ENABLED_SETTING -> {
+                         setFindMyRemoteButtonEnabled(context, isChecked);
+                         context.getContentResolver().notifyChange(
+diff --git a/Settings/src/com/android/tv/settings/accessories/ConnectedDevicesSliceProvider.java b/Settings/src/com/android/tv/settings/accessories/ConnectedDevicesSliceProvider.java
+index a134683..fefb5f5 100644
+--- a/Settings/src/com/android/tv/settings/accessories/ConnectedDevicesSliceProvider.java
++++ b/Settings/src/com/android/tv/settings/accessories/ConnectedDevicesSliceProvider.java
+@@ -125,6 +125,8 @@ public class ConnectedDevicesSliceProvider extends TvSettingsSliceProvider imple
+     static final String KEY_RENAME = "rename";
+     static final String KEY_FORGET = "forget";
+     static final String KEY_EXTRAS_DEVICE = "extra_devices";
++    private static final String KEY_INPUT_BUTTON_SWITCH = "input_button_switch";
++    private static final int INPUT_BUTTON_SWITCH_REQUEST_CODE = 0x5ab1;
+     static final String KEY_BLUETOOTH_DEVICE_INFO = "bluetooth_device_info";
+     static final String KEY_FIND_MY_REMOTE_TOGGLE = "fmr_toggle";
+     static final String KEY_TOGGLE_ACTIVE_AUDIO_OUTPUT = "toggle_active_audio_output";
+@@ -241,6 +243,7 @@ public class ConnectedDevicesSliceProvider extends TvSettingsSliceProvider imple
+         psb.addScreenTitle(
+                 new RowBuilder()
+                         .setTitle(deviceName)
++                        .setSubtitle(device != null ? appendBatteryLevel(device, "") : "")
+                         .setPageId(TvSettingsEnums.CONNECTED_SLICE_DEVICE_ENTRY));
+ 
+         Bundle extras;
+@@ -454,6 +457,16 @@ public class ConnectedDevicesSliceProvider extends TvSettingsSliceProvider imple
+         }
+     }
+ 
++    /** Adds the battery level, when the device has reported one, to a status line. */
++    private String appendBatteryLevel(BluetoothDevice device, String status) {
++        final int level = device.getBatteryLevel();
++        if (level < 0) {
++            return status;
++        }
++        final String battery = getContext().getString(R.string.accessory_battery, level);
++        return status.isEmpty() ? battery : status + " \u2022 " + battery;
++    }
++
+     private void updateConnectedDevices(PreferenceSliceBuilder psb) {
+         // Overall BT devices maps
+         HashMap<String, BluetoothDevice> addressToDevice = new HashMap<>();
+@@ -520,6 +533,10 @@ public class ConnectedDevicesSliceProvider extends TvSettingsSliceProvider imple
+                     .setSubtitle(getString(R.string.bluetooth_ir_entry_subtitle))
+                     .setTargetSliceUri(irSettingsUri));
+         }
++        if (isIrSettingsUriValid) {
++            // Directly below "Set up remote buttons", where its Input button is configured.
++            addInputButtonSwitch(psb);
++        }
+         if (isOfficialRemoteSettingsUriValid) {
+             psb.addPreference(new RowBuilder()
+                     .setKey(KEY_OFFICIAL_REMOTE)
+@@ -528,6 +545,25 @@ public class ConnectedDevicesSliceProvider extends TvSettingsSliceProvider imple
+         }
+     }
+ 
++    /** When on, the remote's Input button switches the TV to this device over HDMI-CEC. */
++    private void addInputButtonSwitch(PreferenceSliceBuilder psb) {
++        final Context context = getContext();
++        final boolean isOn = Settings.Secure.getInt(context.getContentResolver(),
++                ConnectedDevicesSliceBroadcastReceiver.INPUT_BUTTON_SWITCH_SETTING, 0) == 1;
++        final Intent intent = new Intent(ACTION_TOGGLE_CHANGED)
++                .setClass(context, ConnectedDevicesSliceBroadcastReceiver.class)
++                .putExtra(EXTRA_TOGGLE_TYPE, ConnectedDevicesSliceBroadcastReceiver.INPUT_BUTTON_SWITCH)
++                .putExtra(EXTRA_TOGGLE_STATE, !isOn);
++        final PendingIntent pendingIntent = PendingIntent.getBroadcast(context,
++                INPUT_BUTTON_SWITCH_REQUEST_CODE, intent,
++                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
++        psb.addPreference(new RowBuilder()
++                .setKey(KEY_INPUT_BUTTON_SWITCH)
++                .setTitle(getString(R.string.input_button_switch_title))
++                .setSubtitle(getString(R.string.input_button_switch_summary))
++                .addSwitch(pendingIntent, getString(R.string.input_button_switch_title), isOn));
++    }
++
+     private void updateFmr(PreferenceSliceBuilder psb) {
+         List<ResolveInfo> receivers = getContext().getPackageManager().queryBroadcastReceivers(
+                 new Intent(ACTION_FIND_MY_REMOTE), 0);
+@@ -584,10 +620,10 @@ public class ConnectedDevicesSliceProvider extends TvSettingsSliceProvider imple
+                 && AccessoryUtils.getCachedBluetoothDevice(getContext(), device).isConnected();
+         pref.setKey(device.getAddress());
+         pref.setTitle(AccessoryUtils.getLocalName(device));
+-        pref.setSubtitle(
++        pref.setSubtitle(appendBatteryLevel(device,
+                 isConnected
+                         ? getString(R.string.bluetooth_connected_status)
+-                        : getString(R.string.bluetooth_disconnected_status));
++                        : getString(R.string.bluetooth_disconnected_status)));
+         pref.setIcon(IconCompat.createWithResource(
+                 context, AccessoriesFragment.getImageIdForDevice(device, true)));
+         pref.setIconNeedsToBeProcessed(true);
+diff --git a/Settings/src/com/android/tv/settings/system/ButtonsFragment.java b/Settings/src/com/android/tv/settings/system/ButtonsFragment.java
+index d63aa9c..0c394d5 100644
+--- a/Settings/src/com/android/tv/settings/system/ButtonsFragment.java
++++ b/Settings/src/com/android/tv/settings/system/ButtonsFragment.java
+@@ -23,6 +23,7 @@ import android.os.UserHandle;
+ 
+ import androidx.annotation.Keep;
+ import androidx.preference.ListPreference;
++import androidx.preference.TwoStatePreference;
+ 
+ import com.android.internal.app.AssistUtils;
+ import com.android.tv.settings.R;
+@@ -39,6 +40,7 @@ import org.lineageos.internal.logging.LineageMetricsLogger;
+ public class ButtonsFragment extends SettingsPreferenceFragment {
+     private static final String KEY_POWER_BUTTON_LONG_PRESS_ACTION =
+             "power_button_long_press_action";
++    private static final String KEY_ADVANCED_RESTART = "advanced_reboot";
+     private static final String KEY_PRESS_VOLUME_UP_AND_DOWN_TO_MUTE =
+             "press_volume_up_and_down_to_mute";
+ 
+@@ -80,6 +82,16 @@ public class ButtonsFragment extends SettingsPreferenceFragment {
+             getPreferenceScreen().removePreference(mPowerButtonLongPressAction);
+         }
+ 
++        TwoStatePreference advancedRestart = findPreference(KEY_ADVANCED_RESTART);
++        advancedRestart.setChecked(LineageSettings.Secure.getInt(context.getContentResolver(),
++                LineageSettings.Secure.ADVANCED_REBOOT, 0) == 1);
++        advancedRestart.setOnPreferenceChangeListener(
++            (preference, newValue) -> {
++                LineageSettings.Secure.putInt(context.getContentResolver(),
++                        LineageSettings.Secure.ADVANCED_REBOOT, (Boolean) newValue ? 1 : 0);
++                return true;
++            });
++
+         findPreference(KEY_PRESS_VOLUME_UP_AND_DOWN_TO_MUTE).setOnPreferenceChangeListener(
+             (preference, newValue) -> {
+                 LineageSettings.System.putInt(context.getContentResolver(),

@@ -3,7 +3,7 @@
 Usage: update_release_set.py <source set> <recovery.img>
 """
 from pathlib import Path
-import hashlib,json,os,re,shutil,subprocess,sys,tempfile,time,zipfile
+import glob,hashlib,json,os,re,shutil,subprocess,sys,tempfile,time,zipfile
 T=Path('/opt/sabrina/android16');H=T/'out/host/linux-x86/bin';K=Path('/opt/sabrina/release-keys');AVB=K/'avb.pem'
 SIGNED='/opt/sabrina/release-work/signed-target-files.zip'
 S=Path(sys.argv[1]);RECOVERY=Path(sys.argv[2]);assert (S/'RELEASE').is_file(),'source must be a release set'
@@ -67,14 +67,35 @@ dd if="$image" of="$target" bs=1048576 conv=fsync
 '''%RECOVERY_SIZE)
 plan+=[('/system/etc/sabrina-recovery.img',L/'recovery.img',0o644,label_file),('/system/etc/sabrina-recovery.sha256',L/'recovery.sha256',0o644,label_file),
        ('/system/etc/init/sabrina-recovery.rc',L/'rc',0o644,label_file),('/system/bin/sabrina-update-recovery.sh',L/'sh',0o755,label_exec)]
-# Rooted debugging: adbd and the Settings switch both read this at runtime. Root still needs an authorized adb key.
-prop=L/'build.prop';run(debugfs,'-R',f'dump /system/build.prop {prop}',system);text=prop.read_bytes()
-prop.write_bytes(text.replace(b'ro.debuggable=0\n',b'ro.debuggable=1\n'))
-assert b'ro.debuggable=1\n' in prop.read_bytes() and b'ro.adb.secure=1\n' in text;plan.append(('/system/build.prop',prop,0o600,label_file))
+# Stamp this build's date, so Settings > About shows which build is installed.
+now=int(time.time());stamp_date=time.strftime('%a %b %d %H:%M:%S UTC %Y',time.gmtime(now)).replace(' 0',' ',1);stamp_day=time.strftime('%Y%m%d',time.gmtime(now))
+def stamp(text):
+    text=re.sub(rb'^(ro(?:\.[a-z_]+)?\.build\.date)=.*$',lambda m:m[1]+b'='+stamp_date.encode(),text,flags=re.M)
+    text=re.sub(rb'^(ro(?:\.[a-z_]+)?\.build\.date\.utc)=.*$',lambda m:m[1]+b'='+str(now).encode(),text,flags=re.M)
+    return re.sub(rb'^((?:ro\.lineage\.(?:display\.)?version|ro\.modversion)=.*?)\d{8}',lambda m:m[1]+stamp_day.encode(),text,flags=re.M)
+def prop_file(path,name):
+    local=L/name;run(debugfs,'-R',f'dump {path} {local}',system)
+    mode=int(re.search(r'Mode:\s+(0[0-7]+)',run(debugfs,'-R',f'stat {path}',system))[1],8);return local,mode
+# Rooted debugging is on, at the user's request. With it, YouTube offered at most 1440p in testing.
+prop,mode=prop_file('/system/build.prop','build.prop');text=prop.read_bytes()
+prop.write_bytes(stamp(text.replace(b'ro.debuggable=0\n',b'ro.debuggable=1\n')))
+assert b'ro.debuggable=1\n' in prop.read_bytes() and b'ro.adb.secure=1\n' in text;plan.append(('/system/build.prop',prop,mode,label_file))
+ext,mode=prop_file('/system/system_ext/etc/build.prop','system_ext.build.prop');ext.write_bytes(stamp(ext.read_bytes()));plan.append(('/system/system_ext/etc/build.prop',ext,mode,label_file))
+# Framework overlay, rebuilt from the repo so it carries the remote's global keys.
+O=Path(__file__).resolve().parents[2]/'device/google/sabrina16/rro/SabrinaFrameworkOverlay'
+if not O.is_dir():O=Path(os.environ.get('SABRINA_REPO','/path/to/lineageos-23-sabrina'))/'device/google/sabrina16/rro/SabrinaFrameworkOverlay'
+assert (O/'res/xml/global_keys.xml').is_file(),'run apply_remote_wake.py first'
+R=L/'rro';R.mkdir();framework=T/'out/target/product/generic/system/framework/framework-res.apk'
+run(H/'aapt2','compile','--dir',O/'res','-o',R/'res.zip')
+run(H/'aapt2','link','--no-resource-deduping','-I',framework,'--manifest',O/'AndroidManifest.xml','-o',R/'unsigned.apk',R/'res.zip')
+run(H/'zipalign','-f','4',R/'unsigned.apk',R/'aligned.apk')
+java=sorted(glob.glob(str(T/'prebuilts/jdk/jdk[0-9]*/linux-x86/bin/java')),key=lambda p:int(re.search(r'jdk(\d+)',p)[1]))[-1]
+run(java,f'-Djava.library.path={T/"out/host/linux-x86/lib64"}','-jar',T/'out/host/linux-x86/framework/signapk.jar',K/'platform.x509.pem',K/'platform.pk8',R/'aligned.apk',L/'SabrinaFrameworkOverlay.apk')
+plan.append(('/system/product/overlay/SabrinaFrameworkOverlay.apk',L/'SabrinaFrameworkOverlay.apk',0o644,label_file))
 # Battery of remotes and accessories: this build's product partition turns the Bluetooth battery client off.
-bas=L/'product.build.prop';run(debugfs,'-R',f'dump /system/product/etc/build.prop {bas}',system);text=bas.read_bytes()
-bas.write_bytes(text.replace(b'bluetooth.profile.bas.client.enabled=false\n',b'bluetooth.profile.bas.client.enabled=true\n'))
-assert b'bluetooth.profile.bas.client.enabled=true\n' in bas.read_bytes();plan.append(('/system/product/etc/build.prop',bas,0o600,label_file))
+bas,mode=prop_file('/system/product/etc/build.prop','product.build.prop');text=bas.read_bytes()
+bas.write_bytes(stamp(text.replace(b'bluetooth.profile.bas.client.enabled=false\n',b'bluetooth.profile.bas.client.enabled=true\n')))
+assert b'bluetooth.profile.bas.client.enabled=true\n' in bas.read_bytes();plan.append(('/system/product/etc/build.prop',bas,mode,label_file))
 edits=[]
 for path,local,mode,label in plan:
     parent=path.rsplit('/',1)[0]

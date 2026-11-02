@@ -22,6 +22,22 @@ It reports itself as `sabrina`, which YouTube needs for quality above 360p, but 
 
 An enforcing build still has to be tested, and earlier logs show `vendor_init` property denials to review. See [the SELinux review](SELINUX-API-MIGRATION-REVIEW.md). The Updater's recovery switch and rooted debugging both rely on permissive mode, and would need policy rules on an enforcing build.
 
+### Rooted debugging can limit YouTube
+
+To allow rooted debugging, the build is marked debuggable. With that on, YouTube offered at most 1440p on a TV where it used to offer more. The cause isn't confirmed, and the 1440p result is one observation.
+
+### USB can stop being recognised
+
+Windows sometimes reports the Chromecast as `Device Descriptor Request Failed`, and only a PC restart has fixed it. The Chromecast's sleep isn't the cause: USB stayed connected through 30-second and 15-minute sleeps. Both failures came some time after flashing through `usbipd`, so a USB handover left behind on the PC is a suspect, but it's unproven.
+
+### TVAxel's own Input choice doesn't appear
+
+Google's remote-buttons app can offer an HDMI-CEC choice for the Input button, but it hides it when its test decides the TV ignores HDMI-CEC. The test runs each time you set up the remote buttons, so there's no saved value to change. The build's own Input button switch does the same job.
+
+### The Netflix button does nothing
+
+On stock, it goes to Google's `ChromecastServiceAml`, which this build doesn't include.
+
 ### Miracast isn't available
 
 The device can't receive Miracast. AOSP only includes the sending side, and the Lineage device tree has nothing for it, so a receiver would have to be written from scratch.
